@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <com.tencent.rtmp.ui.TXCloudVideoView
+        android:id="@+id/video_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible" />
+
+    <com.faceunity.ui.BeautyControlView
+        android:id="@+id/faceunity_control"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/x98"
+        android:layout_alignParentBottom="true" />
+
+    <ImageView
+        android:id="@+id/iv_change_camera"
+        android:layout_width="@dimen/x80"
+        android:layout_marginTop="@dimen/x8"
+        android:layout_marginRight="@dimen/x8"
+        android:layout_height="@dimen/x80"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:src="@drawable/camera_change" />
+
+    <TextView
+        android:id="@+id/tv_track_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:text="没有检测到人脸"
+        android:textColor="#ffffff"
+        android:textSize="@dimen/text_size_36"
+        android:visibility="invisible" />
+
+</RelativeLayout>
