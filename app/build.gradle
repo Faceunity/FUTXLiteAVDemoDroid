@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 25
+    buildToolsVersion '27.0.3'
     defaultConfig {
         applicationId "com.faceunity.fulpsdkdemodroid"
         minSdkVersion 18
@@ -23,10 +24,10 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation(name: 'LiteAVSDK_Professional', ext: 'aar')
-    implementation 'com.android.support:appcompat-v7:25.4.0'
+    implementation(name: 'LiteAVSDK_Professional_5.3.6004', ext: 'aar')
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.2'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+//    androidTestImplementation 'com.android.support.test:runner:1.0.2'
+//    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     implementation project(':faceunity')
+    implementation 'com.android.support:appcompat-v7:25.4.0'
 }

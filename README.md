@@ -1,6 +1,6 @@
 # FuLpSdkDemoDroid 快速接入文档
 
-FuLpSdkDemoDroid 是集成了 Faceunity 面部跟踪和虚拟道具功能和腾讯移动直播推流的 Demo。
+FuLpSdkDemoDroid 是集成了 Faceunity 面部跟踪和虚拟道具功能和**[腾讯移动直播推流](https://cloud.tencent.com/document/product/454/7873)**的 Demo。
 
 本文是 FaceUnity SDK 快速对 腾讯推流 的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 **[FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/tree/dev)**
 
