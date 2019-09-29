@@ -18,9 +18,9 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
 
-import com.faceunity.FURenderer;
-import com.faceunity.ui.BeautyControlView;
-import com.faceunity.utils.EffectEnum;
+import com.faceunity.beautycontrolview.BeautyControlView;
+import com.faceunity.beautycontrolview.EffectEnum;
+import com.faceunity.beautycontrolview.FURenderer;
 import com.tencent.rtmp.ITXLivePushListener;
 import com.tencent.rtmp.TXLiveBase;
 import com.tencent.rtmp.TXLiveConstants;
@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
                 .setOnTrackingStatusChangedListener(this)
                 .defaultEffect(EffectEnum.Effect_fengya_ztt_fu.effect())
                 .build();
-        beautyControlView.setOnFUControlListener(mFURenderer);
+        beautyControlView.setOnFaceUnityControlListener(mFURenderer);
 
         mCaptureView = (TXCloudVideoView) findViewById(R.id.video_view);
         mLivePusher = new TXLivePusher(this);
@@ -86,7 +86,7 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
                     mFURenderer.onSurfaceCreated();
                     mOnFirstCreate = false;
                 }
-                int texId = mFURenderer.onDrawFrame(i, i1, i2);
+                int texId = mFURenderer.onDrawFrameSingleInputTex(i, i1, i2);
                 return texId;
             }
 

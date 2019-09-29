@@ -2,7 +2,7 @@ package com.faceunity.fulpsdkdemodroid;
 
 import android.app.Application;
 
-import com.faceunity.FURenderer;
+import com.faceunity.beautycontrolview.FURenderer;
 import com.tencent.rtmp.TXLiveBase;
 import com.tencent.ugc.TXUGCBase;
 

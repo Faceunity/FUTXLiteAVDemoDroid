@@ -11,7 +11,7 @@
         android:layout_height="match_parent"
         android:visibility="visible" />
 
-    <com.faceunity.ui.BeautyControlView
+    <com.faceunity.beautycontrolview.BeautyControlView
         android:id="@+id/faceunity_control"
         android:layout_width="match_parent"
         android:layout_height="@dimen/x98"
@@ -20,12 +20,13 @@
     <ImageView
         android:id="@+id/iv_change_camera"
         android:layout_width="@dimen/x80"
+        android:layout_height="@dimen/x80"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentRight="true"
         android:layout_marginTop="@dimen/x8"
         android:layout_marginRight="@dimen/x8"
-        android:layout_height="@dimen/x80"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentTop="true"
-        android:src="@drawable/camera_change" />
+        android:src="@drawable/camera_change"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/tv_track_text"
@@ -34,7 +35,7 @@
         android:layout_centerInParent="true"
         android:text="没有检测到人脸"
         android:textColor="#ffffff"
-        android:textSize="@dimen/text_size_36"
+        android:textSize="18sp"
         android:visibility="invisible" />
 
 </RelativeLayout>
