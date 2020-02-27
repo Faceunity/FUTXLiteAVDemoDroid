@@ -18,9 +18,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
 
-import com.faceunity.beautycontrolview.BeautyControlView;
-import com.faceunity.beautycontrolview.EffectEnum;
-import com.faceunity.beautycontrolview.FURenderer;
+import com.faceunity.nama.FURenderer;
+import com.faceunity.nama.ui.BeautyControlView;
 import com.tencent.rtmp.ITXLivePushListener;
 import com.tencent.rtmp.TXLiveBase;
 import com.tencent.rtmp.TXLiveConstants;
@@ -41,27 +40,20 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
     private PhoneStateListener mPhoneListener = null;
     private RotationObserver mRotationObserver;
     private boolean mFrontCamera = true;
-
-    // 初始化调用一次 onCreate
-    private boolean mOnFirstCreate = true;
     private TextView mTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        BeautyControlView beautyControlView = (BeautyControlView) findViewById(R.id.faceunity_control);
+        BeautyControlView beautyControlView = findViewById(R.id.faceunity_control);
         String sdkver = TXLiveBase.getSDKVersionStr();
         Log.d("liteavsdk", "liteav sdk version is : " + sdkver);
 
         mFURenderer = new FURenderer
                 .Builder(this)
-                .inputTextureType(0)
-                .createEGLContext(false)
-                .needReadBackImage(false)
-                .setNeedFaceBeauty(true)
+                .setInputTextureType(FURenderer.INPUT_2D_TEXTURE)
                 .setOnTrackingStatusChangedListener(this)
-                .defaultEffect(EffectEnum.Effect_fengya_ztt_fu.effect())
                 .build();
         beautyControlView.setOnFaceUnityControlListener(mFURenderer);
 
@@ -71,6 +63,8 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
         mLivePusher.setConfig(mLivePushConfig);
         // 设置自定义视频处理回调，在主播预览及编码前回调出来，用户可以用来做自定义美颜或者增加视频特效
         mLivePusher.setVideoProcessListener(new TXLivePusher.VideoCustomProcessListener() {
+            private boolean mIsFirstFrame = true;
+
             /**
              * 在OpenGL线程中回调，在这里可以进行采集图像的二次处理
              * @param i  纹理ID
@@ -81,13 +75,12 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
              */
             @Override
             public int onTextureCustomProcess(int i, int i1, int i2) {
-                if (mOnFirstCreate) {
-                    Log.d(TAG, "onTextureCustomProcess: create");
+                if (mIsFirstFrame) {
+                    Log.d(TAG, "onTextureCustomProcess: texture:" + i + ", width:" + i1 + ", height:" + i2);
                     mFURenderer.onSurfaceCreated();
-                    mOnFirstCreate = false;
+                    mIsFirstFrame = false;
                 }
-                int texId = mFURenderer.onDrawFrameSingleInputTex(i, i1, i2);
-                return texId;
+                return mFURenderer.onDrawFrameSingleInput(i, i1, i2);
             }
 
             /**
@@ -104,9 +97,9 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
              */
             @Override
             public void onTextureDestoryed() {
-                Log.d(TAG, "onTextureDestoryed: t:" + Thread.currentThread().getId());
+                Log.d(TAG, "onTextureDestroyed tid:" + Thread.currentThread().getId());
                 mFURenderer.onSurfaceDestroyed();
-                mOnFirstCreate = true;
+                mIsFirstFrame = true;
             }
         });
 
@@ -140,8 +133,9 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
         /*设置是否使用前置摄像头。默认使用前置摄像头*/
         mLivePushConfig.setFrontCamera(mFrontCamera);
         /*切换摄像头*/
-        mFURenderer.onCameraChange(mFrontCamera ? Camera.CameraInfo.CAMERA_FACING_FRONT :
-                Camera.CameraInfo.CAMERA_FACING_BACK, 0);
+        int cameraType = mFrontCamera ? Camera.CameraInfo.CAMERA_FACING_FRONT :
+                Camera.CameraInfo.CAMERA_FACING_BACK;
+        mFURenderer.onCameraChange(cameraType, FURenderer.getCameraOrientation(cameraType));
     }
 
     @Override
@@ -170,8 +164,6 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
 
         TelephonyManager tm = (TelephonyManager) getApplicationContext().getSystemService(Service.TELEPHONY_SERVICE);
         tm.listen(mPhoneListener, PhoneStateListener.LISTEN_NONE);
-
-        android.os.Process.killProcess(android.os.Process.myPid());
     }
 
     @Override
