@@ -1,104 +1,63 @@
-# FuLpSdkDemoDroid 快速接入文档
+# FULpSdkDemoDroid 快速接入文档
 
-FuLpSdkDemoDroid 是集成了 Faceunity 面部跟踪和虚拟道具功能和**[腾讯移动直播推流](https://cloud.tencent.com/document/product/454/7873)**的 Demo。
+FULpSdkDemoDroid 是集成了 FaceUnity 美颜道具贴纸功能和 **[腾讯移动直播推流](https://cloud.tencent.com/document/product/454/7873)** 的 Demo。
 
-本文是 FaceUnity SDK 快速对 腾讯推流 的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 **[FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/tree/dev)**
-
-
+本文是 FaceUnity SDK 快速对接腾讯推流的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 **[FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/)**
 
 ## 快速集成方法
 
 ### 一、导入 SDK
 
-将 FaceUnity 文件夹全部放到工程中。
+将 faceunity  模块添加到工程中，下面是一些对文件的说明。
 
-- jniLibs 文件夹下 libnama.so 人脸跟踪及道具绘制核心静态库
-- libs 文件夹下 nama.jar java层native接口封装
-- v3.bundle 初始化必须的二进制文件
-- face_beautification.bundle 我司美颜相关的二进制文件
-- effects 文件夹下的 *.bundle 文件是我司制作的特效贴纸文件，自定义特效贴纸制作的文档和工具请联系我司获取。
+- jniLibs 文件夹下 libnama.so 和 libfuai.so 是人脸跟踪和道具绘制的静态库
+- libs 文件夹下 nama.jar 是供应用层调用的 JNI 接口
+- assets 文件夹下 AI_model/ai_face_processor.bundle 是人脸识别数据包（自 6.6.0 版本起，v3.bundle 不再使用）
+- assets 文件夹下 face_beautification.bundle 是美颜功能数据包
+- assets 文件夹下 normal 中的 \*.bundle 文件是特效贴纸文件，自定义特效贴纸制作的文档和工具，请联系技术支持获取。
 
-### 二、全局配置
+### 二、使用 SDK
 
-在 FURenderer类 的  `initFURenderer` 静态方法是对 Faceunity SDK 一些全局数据初始化的封装，可以在 Application 中调用，仅需初始化一次即可。
+#### 1. 初始化
 
+在 `FURenderer` 类 的  `initFURenderer` 静态方法是对 FaceUnity SDK 一些全局数据初始化的封装，可以在 Application 中调用，也可以在工作线程调用，仅需初始化一次即可。
+
+```java
+public static void initFURenderer(Context context);
 ```
-public static void initFURenderer(Context context)；
-```
 
-### 三、使用 SDK
+#### 2.创建
 
-1. 初始化
+在 `FURenderer` 类 的  `onSurfaceCreated` 方法是对 FaceUnity SDK 每次使用前数据初始化的封装。
 
-在 FURenderer类 的  `onSurfaceCreated` 方法是对 Faceunity SDK 每次使用前数据初始化的封装。
+#### 3. 图像处理
 
-2. 图像处理
+在 `FURenderer` 类 的  `onDrawFrame` 方法是对 FaceUnity SDK 图像处理方法的封装，该方法有许多重载方法适用于不同的数据类型需求。
 
-在 FURenderer类 的  `onDrawFrame` 方法是对 Faceunity SDK 图像处理方法的封装，该方法有许多重载方法适用于不同的数据类型需求。
+在本 demo 中的示例：
 
-3. 销毁
-
-在 FURenderer类 的  `onSurfaceDestroyed` 方法是对 Faceunity SDK 数据销毁的封装。
-
-在 demo 中的示例：
-```
-   private boolean mFirstCreate = true;
-/*设置自定义视频处理回调，在主播预览及编码前回调出来，用户可以用来做自定义美颜或者增加视频特效*/
-        mLivePusher.setVideoProcessListener(new TXLivePusher.VideoCustomProcessListener() {
-            /**
-             * 在OpenGL线程中回调，在这里可以进行采集图像的二次处理
-             * @param i  纹理ID
-             * @param i1      纹理的宽度
-             * @param i2     纹理的高度
-             * @return 返回给SDK的纹理
-             * 说明：SDK回调出来的纹理类型是GLES20.GL_TEXTURE_2D，接口返回给SDK的纹理类型也必须是GLES20.GL_TEXTURE_2D
-             */
-            @Override
+```java
             public int onTextureCustomProcess(int i, int i1, int i2) {
-                if (mFirstCreate) {
+                if (mIsFirstFrame) {
+                    Log.d(TAG, "onTextureCustomProcess: texture:" + i + ", width:" + i1 + ", height:" + i2);
                     mFURenderer.onSurfaceCreated();
-                    mFirstCreate = false;
+                    mIsFirstFrame = false;
                 }
-                int texId = mFURenderer.onDrawFrame(i, i1, i2);
-                return texId;
+                return mFURenderer.onDrawFrameSingleInput(i, i1, i2);
             }
-
-            /**
-             * 增值版回调人脸坐标
-             * @param floats   归一化人脸坐标，每两个值表示某点P的X,Y值。值域[0.f, 1.f]
-             */
-            @Override
-            public void onDetectFacePoints(float[] floats) {
-
-            }
-
-            /**
-             * 在OpenGL线程中回调，可以在这里释放创建的OpenGL资源
-             */
-            @Override
-            public void onTextureDestoryed() {
-                mFURenderer.onSurfaceDestroyed();
-                mFirstCreate = true;
-            }
-        });
-```
-4. 切换摄像头
-
-调用 FURenderer类 的  `onCameraChange` 方法完成切换。
-
-```
-  private boolean mFrontCamera = true;
-  mFURenderer.onCameraChange(mFrontCamera ? Camera.CameraInfo.CAMERA_FACING_FRONT : Camera.CameraInfo.CAMERA_FACING_BACK, 0);
 ```
 
-### 四、切换道具及调整美颜参数
+#### 4. 销毁
 
-本例中 FURenderer类 实现了 OnFUControlListener接口，而OnFUControlListener接口是对切换道具及调整美颜参数等一系列操作的封装，demo中使用了BeautyControlView作为切换道具及调整美颜参数的控制view。使用以下代码便可实现view对各种参数的控制。
+在 `FURenderer` 类 的  `onSurfaceDestroyed` 方法是对 FaceUnity SDK 数据销毁的封装。
 
-```
-mBeautyControlView.setOnFUControlListener(mFURenderer);
-```
+#### 5. 切换相机
 
-PS: 本 Demo 只是简单集成了 FaceUnity SDK。关于直播 SDK 的使用请参考腾讯的文档。
+调用 `FURenderer` 类 的  `onCameraChange` 方法，用于重新为 SDK 设置参数。
 
-**快速集成完毕，关于 FaceUnity SDK 的更多详细说明，请参看 [FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/tree/dev)**
+### 三、切换道具及调整美颜参数
+
+`FURenderer` 类实现了 `OnFaceUnityControlListener` 接口，而 `OnFaceUnityControlListener` 接口是对切换贴纸道具及调整美颜参数等一系列操作的封装。在 demo 中，`BeautyControlView` 用于实现用户交互，调用了 `OnFaceUnityControlListener` 的方法实现功能。
+
+
+**至此快速集成完毕，关于 FaceUnity SDK 的更多详细说明，请参看 [FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/)**
