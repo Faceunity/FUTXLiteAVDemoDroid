@@ -127,15 +127,14 @@ public class MainActivity extends AppCompatActivity implements ITXLivePushListen
 
     private void changeCamera() {
         mFrontCamera = !mFrontCamera;
-        if (mLivePusher.isPushing()) {
+//        if (mLivePusher.isPushing()) {
             mLivePusher.switchCamera();
-        }
+//        }
         /*设置是否使用前置摄像头。默认使用前置摄像头*/
         mLivePushConfig.setFrontCamera(mFrontCamera);
         /*切换摄像头*/
-        int cameraType = mFrontCamera ? Camera.CameraInfo.CAMERA_FACING_FRONT :
-                Camera.CameraInfo.CAMERA_FACING_BACK;
-        mFURenderer.onCameraChange(cameraType, FURenderer.getCameraOrientation(cameraType));
+        int cameraType = mFrontCamera ? Camera.CameraInfo.CAMERA_FACING_FRONT : Camera.CameraInfo.CAMERA_FACING_BACK;
+        mFURenderer.onCameraChanged(cameraType, FURenderer.getCameraOrientation(cameraType));
     }
 
     @Override

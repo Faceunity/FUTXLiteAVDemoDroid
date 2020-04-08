@@ -25,8 +25,7 @@
         android:layout_alignParentRight="true"
         android:layout_marginTop="@dimen/x8"
         android:layout_marginRight="@dimen/x8"
-        android:src="@drawable/camera_change"
-        android:visibility="gone" />
+        android:src="@drawable/camera_change" />
 
     <TextView
         android:id="@+id/tv_track_text"

@@ -2,7 +2,7 @@
 
 FULpSdkDemoDroid 是集成了 FaceUnity 美颜道具贴纸功能和 **[腾讯移动直播推流](https://cloud.tencent.com/document/product/454/7873)** 的 Demo。
 
-本文是 FaceUnity SDK 快速对接腾讯推流的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 **[FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/)**
+本文是 FaceUnity Nama SDK 快速对接腾讯推流的导读说明，SDK 版本为 **6.7.0**。关于 SDK 的详细说明，请参看 **[FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/)**。
 
 ## 快速集成方法
 
@@ -14,17 +14,13 @@ FULpSdkDemoDroid 是集成了 FaceUnity 美颜道具贴纸功能和 **[腾讯移
 - libs 文件夹下 nama.jar 是供应用层调用的 JNI 接口
 - assets 文件夹下 AI_model/ai_face_processor.bundle 是人脸识别数据包（自 6.6.0 版本起，v3.bundle 不再使用）
 - assets 文件夹下 face_beautification.bundle 是美颜功能数据包
-- assets 文件夹下 normal 中的 \*.bundle 文件是特效贴纸文件，自定义特效贴纸制作的文档和工具，请联系技术支持获取。
+- assets 文件夹下 effect 中的 \*.bundle 文件是特效贴纸文件，自定义特效贴纸制作的文档和工具，请联系技术支持获取。
 
 ### 二、使用 SDK
 
 #### 1. 初始化
 
 在 `FURenderer` 类 的  `initFURenderer` 静态方法是对 FaceUnity SDK 一些全局数据初始化的封装，可以在 Application 中调用，也可以在工作线程调用，仅需初始化一次即可。
-
-```java
-public static void initFURenderer(Context context);
-```
 
 #### 2.创建
 
@@ -34,19 +30,6 @@ public static void initFURenderer(Context context);
 
 在 `FURenderer` 类 的  `onDrawFrame` 方法是对 FaceUnity SDK 图像处理方法的封装，该方法有许多重载方法适用于不同的数据类型需求。
 
-在本 demo 中的示例：
-
-```java
-            public int onTextureCustomProcess(int i, int i1, int i2) {
-                if (mIsFirstFrame) {
-                    Log.d(TAG, "onTextureCustomProcess: texture:" + i + ", width:" + i1 + ", height:" + i2);
-                    mFURenderer.onSurfaceCreated();
-                    mIsFirstFrame = false;
-                }
-                return mFURenderer.onDrawFrameSingleInput(i, i1, i2);
-            }
-```
-
 #### 4. 销毁
 
 在 `FURenderer` 类 的  `onSurfaceDestroyed` 方法是对 FaceUnity SDK 数据销毁的封装。
@@ -55,9 +38,10 @@ public static void initFURenderer(Context context);
 
 调用 `FURenderer` 类 的  `onCameraChange` 方法，用于重新为 SDK 设置参数。
 
+上面一系列方法的使用，具体在 demo 中的 `MainActivity` 类，请参考该代码示例接入。
+
 ### 三、切换道具及调整美颜参数
 
 `FURenderer` 类实现了 `OnFaceUnityControlListener` 接口，而 `OnFaceUnityControlListener` 接口是对切换贴纸道具及调整美颜参数等一系列操作的封装。在 demo 中，`BeautyControlView` 用于实现用户交互，调用了 `OnFaceUnityControlListener` 的方法实现功能。
 
-
-**至此快速集成完毕，关于 FaceUnity SDK 的更多详细说明，请参看 [FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/)**
+**至此快速集成完毕，关于 FaceUnity SDK 的更多详细说明，请参看 [FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/)**。
