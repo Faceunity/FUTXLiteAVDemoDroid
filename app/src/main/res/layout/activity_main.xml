@@ -11,10 +11,18 @@
         android:layout_height="match_parent"
         android:visibility="visible" />
 
-    <com.faceunity.nama.ui.BeautyControlView
+    <com.tencent.rtmp.ui.TXCloudVideoView
+        android:id="@+id/play_view"
+        android:layout_width="100dp"
+        android:layout_height="120dp"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="60dp"
+        android:visibility="visible"/>
+
+    <com.faceunity.nama.ui.FaceUnityView
         android:id="@+id/faceunity_control"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/x98"
+        android:layout_height="wrap_content"
         android:layout_alignParentBottom="true" />
 
     <ImageView
@@ -36,5 +44,14 @@
         android:textColor="#ffffff"
         android:textSize="18sp"
         android:visibility="invisible" />
+
+    <TextView
+        android:id="@+id/tv_fps"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        tools:text="0"
+        android:textColor="#ffffff"
+        android:textSize="18sp"/>
 
 </RelativeLayout>

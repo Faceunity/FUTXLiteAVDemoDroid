@@ -1,1 +1,4 @@
 include ':app', ':faceunity'
+include ':liveplayerdemo'
+include ':livepusherdemo'
+include ':audioeffectsettingkit'
