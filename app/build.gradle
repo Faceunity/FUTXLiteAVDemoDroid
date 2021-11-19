@@ -9,6 +9,7 @@ android {
         targetSdkVersion 28
         versionCode 100
         versionName "1.0.0"
+        multiDexEnabled true
         ndk {
             abiFilters "armeabi", "armeabi-v7a"
         }
@@ -19,6 +20,26 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        sourceCompatibility 1.8
+        targetCompatibility 1.8
+    }
+    applicationVariants.all { variant ->
+        variant.mergeAssetsProvider.configure {
+            doLast {
+                delete(fileTree(dir: outputDir,
+                        includes: ['model/ai_bgseg_green.bundle',
+                                   'model/ai_face_processor_lite.bundle',
+                                   'model/ai_hairseg.bundle',
+                                   'model/ai_hand_processor.bundle',
+                                   'model/ai_human_processor_mb_fast.bundle',
+                                   'graphics/controller_cpp.bundle',
+                                   'graphics/fuzzytoonfilter.bundle',
+                                   'graphics/tongue.bundle',
+                                   'graphics/fxaa.bundle']))
+            }
+        }
+    }
 }
 
 dependencies {
@@ -26,6 +47,7 @@ dependencies {
     implementation 'com.android.support.constraint:constraint-layout:1.1.3'
     testImplementation 'junit:junit:4.12'
     implementation 'com.android.support:appcompat-v7:28.0.0'
+    implementation 'com.android.support:multidex:1.0.3'
     api project(':liveplayerdemo')
     api project(':livepusherdemo')
 }

@@ -1,7 +1,7 @@
 ## 对接第三方 Demo 的 faceunity 模块
 
 本工程是第三方 Demo 依赖的 faceunity 模块，每次升级 SDK 时会优先在这里改动，然后同步到各个第三方 Demo 中。
-当前的 Nama SDK 版本是 **7.2.0**。
+当前的 Nama SDK 版本是 **7.4.1.0**。
 
 --------
 
@@ -15,8 +15,33 @@
 - assets/makeup 文件夹下 \*.bundle 是美妆素材文件。
 - com/faceunity/nama/authpack.java 是鉴权证书文件，必须提供有效的证书才能运行 Demo，请联系技术支持获取。
 
-通过 Maven 依赖最新版 SDK：`implementation 'com.faceunity:nama:7.2.0'`，方便升级，推荐使用。
+通过 Maven 依赖最新版 SDK，方便升级，推荐使用。
+```java
+allprojects {
+    repositories {
+        ...
+        maven { url 'http://maven.faceunity.com/repository/maven-public/' }
+        ...
+  }
+}
+```
+```java
+dependencies {
+...
+implementation 'com.faceunity:core:7.4.1.0' // 实现代码
+implementation 'com.faceunity:model:7.4.1.0' // 道具以及AI bundle
+...
+}
+```
 
+```java
+dependencies {
+...
+implementation 'com.faceunity:nama:7.4.1.0' //底层库-标准版
+implementation 'com.faceunity:nama-lite:7.4.1.0' //底层库-lite版
+...
+}
+```
 其中，AAR 包含以下内容：
 
 ```
@@ -91,13 +116,13 @@ android {
 
 调用 `FURenderer` 类的  `setup` 方法初始化 SDK，可以在工作线程调用，应用启动后仅需调用一次。
 
-在 CameraPushMainActivity 类 onCreate()方法中执行
+在 NeedFaceUnityAcct 类 onCreate()方法中执行
 
 #### 2.创建
 
-调用 `FURenderer` 类的  `onSurfaceCreated` 方法在 SDK 使用前加载必要的资源。
+在 `FaceUnityDataFactory` 类 的  `bindCurrentRenderer` 方法是对 FaceUnity SDK 每次使用前数据初始化的封装。
 
-在MainActivity类中，需要注册 VideoCustomProcessListener 接口，接口中的 onTextureCustomProcess 方法在第一次执行时，执行FURenderer.onSurfaceCreated()方法。
+在 CameraPushMainActivity 类中 设置 VideoCustomProcessListener回调方法，且在onTextureCustomProcess方法中执行。
 
 ```
 // 设置自定义视频处理回调，在主播预览及编码前回调出来，用户可以用来做自定义美颜或者增加视频特效
@@ -115,7 +140,7 @@ mLivePusher.setVideoProcessListener(new TXLivePusher.VideoCustomProcessListener(
     @Override
     public int onTextureCustomProcess(int i, int i1, int i2) {
         if (mIsFirstFrame) {
-            mFURenderer.onSurfaceCreated();
+            mFURenderer.prepareRenderer(mFURendererListener);
             mIsFirstFrame = false;
         }
         return mFURenderer.onDrawFrameSingleInput(i, i1, i2);
@@ -135,40 +160,47 @@ mLivePusher.setVideoProcessListener(new TXLivePusher.VideoCustomProcessListener(
      */
     @Override
     public void onTextureDestoryed() {
-        mFURenderer.onSurfaceDestroyed();
+        mFURenderer.release();
         mIsFirstFrame = true;
     }
 });
+
+private final FURendererListener mFURendererListener = new FURendererListener() {
+    @Override
+    public void onPrepare() {
+        mFaceUnityDataFactory.bindCurrentRenderer();
+    }
+
+    @Override
+    public void onRelease() {
+
+    }
+};
 ```
 
 #### 3. 图像处理
 
 调用 `FURenderer` 类的  `onDrawFrameXXX` 方法进行图像处理，有许多重载方法适用于不同数据类型的需求。
 
-在MainActivity类中，需要注册 VideoCustomProcessListener 接口，接口中的 onTextureCustomProcess 方法时可以执行美颜操作。（代码如上）
+在CameraPushMainActivity类中，需要注册 VideoCustomProcessListener 接口，接口中的 onTextureCustomProcess 方法时可以执行美颜操作。（代码如上）
 
-onDrawFrameSingleInput 是单输入，输入图像buffer数组或者纹理Id，输出纹理Id
 onDrawFrameDualInput 双输入，输入图像buffer数组与纹理Id，输出纹理Id。性能上，双输入优于单输入
-
-在onDrawFrameSingleInput 与onDrawFrameDualInput 方法内，在执行底层方法之前，都会执行prepareDrawFrame()方法(执行各个特效模块的任务，将美颜参数传给底层)。
-
-腾讯移动直播支持单输入： onDrawFrameSingleInput 
 
 #### 4. 销毁
 
-调用 `FURenderer` 类的  `onSurfaceDestroyed` 方法在 SDK 结束前释放占用的资源。
+调用 `FURenderer` 类的  `release` 方法在 SDK 结束前释放占用的资源。
 
 在CameraPushMainActivity类中，需要注册 VideoCustomProcessListener 接口，接口中的 onTextureDestoryed方法时释放资源
 
 #### 5. 切换相机
 
-调用 `FURenderer` 类 的  `onCameraChanged` 方法，用于重新为 SDK 设置参数。
+调用 `FURenderer` 类 的  `setCameraFacing` 方法，用于重新为 SDK 设置参数。
 
 在CameraPushMainActivity 类下的 R.id.livepusher_btn_switch_camera 空间点击事件方法时执行 onCameraChanged方法。
 
 #### 6. 旋转手机
 
-调用 `FURenderer` 类 的  `onDeviceOrientationChanged` 方法，用于重新为 SDK 设置参数。
+调用 `FURenderer` 类 的  `setDeviceOrientation` 方法，用于重新为 SDK 设置参数。
 
 使用方法：CameraPushMainActivity 中可见
 
@@ -200,11 +232,11 @@ public void onSensorChanged(SensorEvent event) {
 
 ### 三、接口介绍
 
-- IFURenderer 是核心接口，提供了创建、销毁、处理等功能。使用时通过 FURenderer.Builder 创建合适的 FURenderer 实例即可。
-- IModuleManager 是模块管理接口，用于创建和销毁各个功能模块，FURenderer 是其实现类。
-- IFaceBeautyModule 是美颜模块的接口，用于调整美颜参数。使用时通过 FURenderer 拿到 FaceBeautyModule 实例，调用里面的接口方法即可。
-- IStickerModule 是贴纸模块的接口，用于加载贴纸效果。使用时通过 FURenderer 拿到 StickerModule 实例，调用里面的接口方法即可。
-- IMakeModule 是美妆模块的接口，用于加载美妆效果。使用时通过 FURenderer 拿到 MakeupModule 实例，调用里面的接口方法即可。
-- IBodySlimModule 是美体模块的接口，用于调整美体参数。使用时通过 FURenderer 拿到 BodySlimModule 实例，调用里面的接口方法即可。
+- IFURenderer 是核心接口，提供了创建、销毁、渲染等接口。
+- FaceUnityDataFactory 控制四个功能模块，用于功能模块的切换，初始化
+- FaceBeautyDataFactory 是美颜业务工厂，用于调整美颜参数。
+- PropDataFactory 是道具业务工厂，用于加载贴纸效果。
+- MakeupDataFactory 是美妆业务工厂，用于加载美妆效果。
+- BodyBeautyDataFactory 是美体业务工厂，用于调整美体参数。
 
 关于 SDK 的更多详细说明，请参看 **[FULiveDemoDroid](https://github.com/Faceunity/FULiveDemoDroid/)**。如有对接问题，请联系技术支持。
