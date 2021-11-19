@@ -34,17 +34,19 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.faceunity.core.enumeration.CameraFacingEnum;
+import com.faceunity.core.enumeration.FUInputTextureEnum;
+import com.faceunity.core.enumeration.FUTransformMatrixEnum;
 import com.faceunity.nama.FURenderer;
-import com.faceunity.nama.IFURenderer;
+import com.faceunity.nama.data.FaceUnityDataFactory;
+import com.faceunity.nama.listener.FURendererListener;
 import com.faceunity.nama.ui.FaceUnityView;
-import com.faceunity.nama.utils.CameraUtils;
 import com.tencent.liteav.audiosettingkit.AudioEffectPanel;
 import com.tencent.liteav.demo.livepusher.R;
 import com.tencent.liteav.demo.livepusher.camerapush.PreferenceUtil;
-import com.tencent.liteav.demo.livepusher.camerapush.faceunity.render.CameraRenderer;
-import com.tencent.liteav.demo.livepusher.camerapush.model.Constants;
 import com.tencent.liteav.demo.livepusher.camerapush.model.CameraPush;
 import com.tencent.liteav.demo.livepusher.camerapush.model.CameraPushImpl;
+import com.tencent.liteav.demo.livepusher.camerapush.model.Constants;
 import com.tencent.liteav.demo.livepusher.camerapush.ui.view.LogInfoWindow;
 import com.tencent.liteav.demo.livepusher.camerapush.ui.view.PusherPlayQRCodeFragment;
 import com.tencent.liteav.demo.livepusher.camerapush.ui.view.PusherSettingFragment;
@@ -109,7 +111,8 @@ public class CameraPushMainActivity extends FragmentActivity implements
     private TextView mTvFps;
     private boolean isFUOn = false;
     private FURenderer mFURenderer;
-    private int mCameraFacing = IFURenderer.CAMERA_FACING_FRONT;
+    private FaceUnityDataFactory mFaceUnityDataFactory;
+    private CameraFacingEnum mCameraFacing = CameraFacingEnum.CAMERA_FRONT;
     private SensorManager mSensorManager;
 
     @Override
@@ -127,29 +130,30 @@ public class CameraPushMainActivity extends FragmentActivity implements
             faceUnityView.setVisibility(View.GONE);
         } else {
             isFUOn = true;
-            FURenderer.setup(this);
-            mFURenderer = new FURenderer
-                    .Builder(this)
-                    .setInputTextureType(FURenderer.INPUT_TEXTURE_2D)
-                    .setInputImageOrientation(CameraUtils.getCameraOrientation(mCameraFacing))
-                    .setRunBenchmark(true)
-                    .setOnDebugListener(new FURenderer.OnDebugListener() {
+            mFURenderer = FURenderer.getInstance();
+            mFURenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0_FLIPVERTICAL);
+            mFURenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0_FLIPVERTICAL);
+            mFURenderer.setInputOrientation(0);
+            mFURenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT0);
+            mFURenderer.setCameraFacing(CameraFacingEnum.CAMERA_FRONT);
+            mFURenderer.setInputTextureType(FUInputTextureEnum.FU_ADM_FLAG_COMMON_TEXTURE);
+            mFURenderer.setOnDebugListener(new FURenderer.OnDebugListener() {
+                @Override
+                public void onFpsChanged(double fps, double callTime) {
+                    final String FPS = String.format(Locale.getDefault(), "%.2f", fps);
+                    Log.e(TAG, "onFpsChanged: FPS " + FPS + " callTime " + String.format(Locale.getDefault(), "%.2f", callTime));
+                    runOnUiThread(new Runnable() {
                         @Override
-                        public void onFpsChanged(double fps, double callTime) {
-                            final String FPS = String.format(Locale.getDefault(), "%.2f", fps);
-                            Log.e(TAG, "onFpsChanged: FPS " + FPS + " callTime " + String.format(Locale.getDefault(), "%.2f", callTime));
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (mTvFps != null) {
-                                        mTvFps.setText("FPS: " + FPS);
-                                    }
-                                }
-                            });
+                        public void run() {
+                            if (mTvFps != null) {
+                                mTvFps.setText("FPS: " + FPS);
+                            }
                         }
-                    })
-                    .build();
-            faceUnityView.setModuleManager(mFURenderer);
+                    });
+                }
+            });
+            mFaceUnityDataFactory = new FaceUnityDataFactory(0);
+            faceUnityView.bindDataFactory(mFaceUnityDataFactory);
             mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
             Sensor sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             mSensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL);
@@ -189,6 +193,18 @@ public class CameraPushMainActivity extends FragmentActivity implements
             mSensorManager.unregisterListener(this);
         }
     }
+
+    private final FURendererListener mFURendererListener = new FURendererListener() {
+        @Override
+        public void onPrepare() {
+            mFaceUnityDataFactory.bindCurrentRenderer();
+        }
+
+        @Override
+        public void onRelease() {
+
+        }
+    };
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -242,12 +258,21 @@ public class CameraPushMainActivity extends FragmentActivity implements
                 view.setBackgroundResource(R.drawable.livepusher_camera_front);
             }
             mLivePusher.switchCamera();
-            mCameraFacing = IFURenderer.CAMERA_FACING_FRONT - mCameraFacing;
+            mCameraFacing = mCameraFacing == CameraFacingEnum.CAMERA_BACK ? CameraFacingEnum.CAMERA_FRONT : CameraFacingEnum.CAMERA_BACK;
             if (mFURenderer != null) {
-                mFURenderer.onCameraChanged(mCameraFacing, CameraUtils.getCameraOrientation(mCameraFacing));
-                if (mFURenderer.getMakeupModule() != null) {
-                    mFURenderer.getMakeupModule().setIsMakeupFlipPoints(mCameraFacing == IFURenderer.CAMERA_FACING_FRONT ? 0 : 1);
+                mFURenderer.setCameraFacing(mCameraFacing);
+                if (mCameraFacing == CameraFacingEnum.CAMERA_FRONT) {
+                    mFURenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0_FLIPVERTICAL);
+                    mFURenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0_FLIPVERTICAL);
+                    mFURenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT0);
+                    mFURenderer.setInputOrientation(0);
+                }else {
+                    mFURenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0);
+                    mFURenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0);
+                    mFURenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT0_FLIPVERTICAL);
+                    mFURenderer.setInputOrientation(90);
                 }
+
             }
         } else if (id == R.id.livepusher_btn_beauty) {
             if (mLogInfoWindow.isShowing()) {
@@ -566,17 +591,15 @@ public class CameraPushMainActivity extends FragmentActivity implements
             public int onTextureCustomProcess(int i, int i1, int i2) {
                 if (mIsFirstFrame) {
                     Log.d(TAG, "onTextureCustomProcess: texture:" + i + ", width:" + i1 + ", height:" + i2);
-                    mFURenderer.onSurfaceCreated();
+                    mFURenderer.prepareRenderer(mFURendererListener);
                     mIsFirstFrame = false;
                     return 0;
                 }
                 //三星s6总是会出现花屏
                 if (System.currentTimeMillis() - currentTime < 200){
-                    mFURenderer.onDrawFrameSingleInput(i, i1, i2);
+                    mFURenderer.onDrawFrameDualInput(null, i, i1, i2);
                 }
-                long start = System.nanoTime();
-                int texId = mFURenderer.onDrawFrameSingleInput(i, i1, i2);
-                long renderTime = System.nanoTime() - start;
+                int texId = mFURenderer.onDrawFrameDualInput(null, i, i1, i2);
                 return texId;
             }
 
@@ -595,7 +618,7 @@ public class CameraPushMainActivity extends FragmentActivity implements
             @Override
             public void onTextureDestoryed() {
                 Log.d(TAG, "onTextureDestroyed tid:" + Thread.currentThread().getId());
-                mFURenderer.onSurfaceDestroyed();
+                mFURenderer.release();
                 mIsFirstFrame = true;
             }
         });
@@ -733,12 +756,18 @@ public class CameraPushMainActivity extends FragmentActivity implements
     public void onSensorChanged(SensorEvent event) {
         float x = event.values[0];
         float y = event.values[1];
+        int orientation = 0;
         if (Math.abs(x) > 3 || Math.abs(y) > 3) {
             if (Math.abs(x) > Math.abs(y)) {
-                mFURenderer.onDeviceOrientationChanged(x > 0 ? 270 : 90);
+                orientation = x > 0 ? 270 : 90;
             } else {
-                mFURenderer.onDeviceOrientationChanged(y > 0 ? 0 : 180);
+                orientation = y > 0 ? 0 : 180;
             }
+        }
+        if (mCameraFacing == CameraFacingEnum.CAMERA_FRONT) {
+            mFURenderer.setDeviceOrientation((orientation + 270) % 360);
+        }else {
+            mFURenderer.setDeviceOrientation(orientation);
         }
     }
 

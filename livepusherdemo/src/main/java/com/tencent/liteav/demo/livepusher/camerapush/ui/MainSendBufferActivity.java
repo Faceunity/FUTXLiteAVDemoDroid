@@ -2,17 +2,31 @@ package com.tencent.liteav.demo.livepusher.camerapush.ui;
 
 import android.content.Context;
 import android.content.Intent;
+import android.hardware.Camera;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
+import com.faceunity.core.entity.FURenderOutputData;
+import com.faceunity.core.enumeration.CameraFacingEnum;
+import com.faceunity.core.enumeration.FUAIProcessorEnum;
+import com.faceunity.core.enumeration.FUInputTextureEnum;
+import com.faceunity.core.enumeration.FUTransformMatrixEnum;
+import com.faceunity.core.utils.CameraUtils;
 import com.faceunity.nama.FURenderer;
+import com.faceunity.nama.data.FaceUnityDataFactory;
+import com.faceunity.nama.listener.FURendererListener;
+import com.faceunity.nama.listener.OnTrackStatusChangedListener;
 import com.faceunity.nama.ui.FaceUnityView;
 import com.tencent.liteav.demo.livepusher.R;
-import com.tencent.liteav.demo.livepusher.camerapush.faceunity.CameraUtils;
+import com.tencent.liteav.demo.livepusher.camerapush.PreferenceUtil;
 import com.tencent.liteav.demo.livepusher.camerapush.faceunity.gles.core.GlUtil;
 import com.tencent.liteav.demo.livepusher.camerapush.faceunity.render.CameraRenderer;
 import com.tencent.liteav.demo.livepusher.camerapush.model.Constants;
@@ -24,18 +38,16 @@ import com.tencent.rtmp.TXLivePushConfig;
 import com.tencent.rtmp.TXLivePusher;
 
 import java.io.File;
-import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.tencent.rtmp.TXLiveConstants.CUSTOM_MODE_VIDEO_CAPTURE;
 
 public class MainSendBufferActivity extends AppCompatActivity implements CameraRenderer.OnRendererStatusListener, FURenderer.OnDebugListener,
-        FURenderer.OnTrackStatusChangedListener , LifeCycleSensorManager.OnAccelerometerChangedListener{
+        OnTrackStatusChangedListener, LifeCycleSensorManager.OnAccelerometerChangedListener{
     private static final String TAG = "MainActivity";
-    private CameraRenderer mCameraRenderer;
-    private FURenderer mFuRenderer;
     private TextView mTvFps;
     private TextView mTvTrackStatus;
 
@@ -52,6 +64,14 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
     private String mRealtimePlayURL = "";   // 低延时拉流地址
     private CSVUtils mCSVUtils;
 
+    private CameraRenderer mCameraRenderer;
+    private FURenderer mFuRenderer;
+    private FaceUnityDataFactory mFaceUnityDataFactory;
+    private byte[] mReadBack, mYUV420P;
+    private HandlerThread mPushThread;
+    private Handler mPushHandler;
+    private ReentrantReadWriteLock mReadWriteLock = new ReentrantReadWriteLock();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,7 +83,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
         mLivePushConfig = new TXLivePushConfig();
         mLivePushConfig.setCustomModeType(CUSTOM_MODE_VIDEO_CAPTURE);
         mLivePushConfig.setVideoResolution(TXLiveConstants.VIDEO_RESOLUTION_TYPE_720_1280);
-        mLivePushConfig.setHardwareAcceleration(TXLiveConstants.ENCODE_VIDEO_SOFTWARE);
+        mLivePushConfig.setHardwareAcceleration(TXLiveConstants.ENCODE_VIDEO_HARDWARE);
         mLivePusher.setConfig(mLivePushConfig);
 
         GLSurfaceView glSurfaceView = findViewById(R.id.video_view);
@@ -75,22 +95,33 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
 
         mTvFps = findViewById(R.id.tv_fps);
         FaceUnityView faceUnityView = findViewById(R.id.faceunity_control);
-        FURenderer.setup(this);
-        mFuRenderer = new FURenderer.Builder(this)
-                .setInputTextureType(FURenderer.INPUT_TEXTURE_EXTERNAL_OES)
-                .setCameraFacing(FURenderer.CAMERA_FACING_FRONT)
-                .setInputImageOrientation(CameraUtils.getCameraOrientation(FURenderer.CAMERA_FACING_FRONT))
-                .setRunBenchmark(true)
-                .setOnDebugListener(this)
-                .setOnTrackStatusChangedListener(this)
-                .build();
-        faceUnityView.setModuleManager(mFuRenderer);
-        LifeCycleSensorManager lifeCycleSensorManager = new LifeCycleSensorManager(this, getLifecycle());
-        lifeCycleSensorManager.setOnAccelerometerChangedListener(this);
+        String isOpen = PreferenceUtil.getString(this, PreferenceUtil.KEY_FACEUNITY_IS_ON);
+        if (TextUtils.isEmpty(isOpen) || isOpen.equals("false")) {
+            faceUnityView.setVisibility(View.GONE);
+        } else {
+            mFuRenderer = FURenderer.getInstance();
+            mFuRenderer.setInputTextureType(FUInputTextureEnum.FU_ADM_FLAG_EXTERNAL_OES_TEXTURE);
+            mFuRenderer.setCameraFacing(CameraFacingEnum.CAMERA_FRONT);
+
+            mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
+            mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
+            mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_FRONT));
+            mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT180);
+
+            mFuRenderer.setOnDebugListener(this);
+            mFuRenderer.setOnTrackStatusChangedListener(this);
+            mFaceUnityDataFactory = new FaceUnityDataFactory(0);
+            faceUnityView.bindDataFactory(mFaceUnityDataFactory);
+            LifeCycleSensorManager lifeCycleSensorManager = new LifeCycleSensorManager(this, getLifecycle());
+            lifeCycleSensorManager.setOnAccelerometerChangedListener(this);
+        }
 
         mLivePusher.startPusher(mPusherURL);
         initFragment();
 
+        mPushThread = new HandlerThread("TXLivePushe");
+        mPushThread.start();
+        mPushHandler = new Handler(mPushThread.getLooper());
     }
 
     @Override
@@ -106,74 +137,121 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
     }
 
     @Override
-    public void onSurfaceCreated() {
-        if (mFuRenderer != null) {
-            mFuRenderer.onSurfaceCreated();
+    protected void onDestroy() {
+        super.onDestroy();
+        mPushHandler.removeMessages(0);
+        mPushThread.quitSafely();
+    }
+
+    private void pushData(int cameraWidth, int cameraHeight) {
+        if (null != mReadBack) {
+            if (mYUV420P == null) {
+                mYUV420P = new byte[mReadBack.length];
+            }
+            mReadWriteLock.readLock().lock();
+            try {
+                NV21toI420(mReadBack, mYUV420P, cameraHeight, cameraWidth);
+            } finally {
+                mReadWriteLock.readLock().unlock();
+            }
+            mLivePusher.sendCustomVideoData(mYUV420P, TXLivePusher.YUV_420P, cameraHeight, cameraWidth);
         }
+    }
+
+    private final FURendererListener mFURendererListener = new FURendererListener() {
+        @Override
+        public void onPrepare() {
+            mFaceUnityDataFactory.bindCurrentRenderer();
+        }
+
+        @Override
+        public void onRelease() {
+
+        }
+    };
+
+    @Override
+    public void onSurfaceCreated() {
         initCsvUtil(this);
+        if (mFuRenderer != null) {
+            mFuRenderer.prepareRenderer(mFURendererListener);
+        }
     }
 
     @Override
     public void onSurfaceChanged(int viewWidth, int viewHeight) {
-
     }
-
-    private byte[] mReadBack;
 
     @Override
     public int onDrawFrame(byte[] nv21Byte, int texId, int cameraWidth, int cameraHeight, float[] mvpMatrix, float[] texMatrix, long timeStamp) {
+        int tid = 0;
         if (nv21Byte == null) {
-            return 0;
-        }
-        if (mReadBack == null) {
-            mReadBack = new byte[nv21Byte.length];
+            return tid;
         }
         if (mFuRenderer != null) {
             long start = System.nanoTime();
 
-            int tId = mFuRenderer.onDrawFrameDualInput(nv21Byte, texId, cameraWidth, cameraHeight, mReadBack, cameraHeight, cameraWidth);
-            byte[] buffer = nv21ToI420(mReadBack, cameraHeight, cameraWidth);
-            mLivePusher.sendCustomVideoData(buffer, TXLivePusher.YUV_420P, cameraHeight, cameraWidth);
+            mReadWriteLock.writeLock().lock();
+            try {
+                FURenderOutputData outputData = mFuRenderer.onDrawFrameDualInput(nv21Byte, texId, cameraWidth, cameraHeight, true);
+                if (outputData.getTexture() != null && outputData.getTexture().getTexId() > 0) {
+                    tid = outputData.getTexture().getTexId();
+                }
+                if (outputData.getImage() != null && outputData.getImage().getBuffer() != null) {
+                    mReadBack = outputData.getImage().getBuffer();
+                }
+            } finally {
+                mReadWriteLock.writeLock().unlock();
+            }
+
+            mPushHandler.post(() -> pushData(cameraWidth, cameraHeight));
 
             long renderTime = System.nanoTime() - start;
             mCSVUtils.writeCsv(null, renderTime);
 
-            return tId;
+            return tid;
+        } else {
+            mReadBack = nv21Byte;
+            mPushHandler.post(() -> pushData(cameraWidth, cameraHeight));
         }
-        return 0;
+        return tid;
     }
 
-    private static byte[] nv21ToI420(byte[] data, int width, int height) {
-        byte[] ret = new byte[data.length];
-        int total = width * height;
+    private static void NV21toI420(byte[] nv12bytes, byte[] i420bytes, int width,int height) {
+        int nLenY = width * height;
+        int nLenU = nLenY / 4;
 
-        ByteBuffer bufferY = ByteBuffer.wrap(ret, 0, total);
-        ByteBuffer bufferU = ByteBuffer.wrap(ret, total, total / 4);
-        ByteBuffer bufferV = ByteBuffer.wrap(ret, total + total / 4, total / 4);
+        System.arraycopy(nv12bytes, 0, i420bytes, 0, width * height);
 
-        bufferY.put(data, 0, total);
-        for (int i = total; i < data.length; i += 2) {
-            bufferV.put(data[i]);
-            bufferU.put(data[i + 1]);
+        for (int i = 0; i < nLenU; i++) {
+            i420bytes[nLenY + i] = nv12bytes[nLenY + 2 * i + 1];
+
+            i420bytes[nLenY + nLenU + i] = nv12bytes[nLenY + 2 * i];
         }
-
-        return ret;
     }
 
     @Override
     public void onSurfaceDestroy() {
-        if (mFuRenderer != null) {
-            mFuRenderer.onSurfaceDestroyed();
-        }
         mCSVUtils.close();
+        if (mFuRenderer != null) {
+            mFuRenderer.release();
+        }
     }
 
     @Override
     public void onCameraChanged(int cameraFacing, int cameraOrientation) {
         if (mFuRenderer != null) {
-            mFuRenderer.onCameraChanged(cameraFacing, cameraOrientation);
-            if (mFuRenderer.getMakeupModule() != null) {
-                mFuRenderer.getMakeupModule().setIsMakeupFlipPoints(cameraFacing == FURenderer.CAMERA_FACING_BACK ? 1 : 0);
+            mFuRenderer.setCameraFacing(cameraFacing == 1 ? CameraFacingEnum.CAMERA_FRONT : CameraFacingEnum.CAMERA_BACK);
+            if (cameraFacing == 1) {
+                mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
+                mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
+                mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_FRONT));
+                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT180);
+            }else {
+                mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0);
+                mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0);
+                mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(cameraFacing));
+                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT0_FLIPVERTICAL);
             }
         }
     }
@@ -187,7 +265,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
     }
 
     @Override
-    public void onTrackStatusChanged(final int type, final int status) {
+    public void onTrackStatusChanged(final FUAIProcessorEnum type, final int status) {
         Log.i(TAG, "onTrackStatusChanged() called with: type = [" + type + "], status = [" + status + "]");
         if (mTvTrackStatus == null) {
             return;
@@ -195,7 +273,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mTvTrackStatus.setText(type == FURenderer.TRACK_TYPE_FACE ? R.string.toast_not_detect_face : R.string.toast_not_detect_face_or_body);
+                mTvTrackStatus.setText(type == FUAIProcessorEnum.FACE_PROCESSOR ? R.string.toast_not_detect_face : R.string.toast_not_detect_face_or_body);
                 mTvTrackStatus.setVisibility(status > 0 ? View.INVISIBLE : View.VISIBLE);
             }
         });
@@ -203,7 +281,8 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
 
     @Override
     public void onFpsChanged(final double fps, final double callTime) {
-        Log.d(TAG, "onFpsChanged() called with: fps = [" + (int) fps + "], callTime = [" + String.format("%.2f", (float) callTime) + "]");
+        final String FPS = String.format(Locale.getDefault(), "%.2f", fps);
+        Log.e(TAG, "onFpsChanged: FPS " + FPS + " callTime " + String.format(Locale.getDefault(), "%.2f", callTime));
         if (mTvFps == null) {
             return;
         }
@@ -241,9 +320,9 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
     public void onAccelerometerChanged(float x, float y, float z) {
         if (Math.abs(x) > 3 || Math.abs(y) > 3) {
             if (Math.abs(x) > Math.abs(y)) {
-                mFuRenderer.onDeviceOrientationChanged(x > 0 ? 0 : 180);
+                mFuRenderer.setDeviceOrientation(x > 0 ? 0 : 180);
             } else {
-                mFuRenderer.onDeviceOrientationChanged(y > 0 ? 90 : 270);
+                mFuRenderer.setDeviceOrientation(y > 0 ? 90 : 270);
             }
         }
     }
@@ -258,7 +337,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
         String filePath = Constant.filePath + dateStrDir + File.separator + "excel-" + dateStrFile + ".csv";
         Log.d(TAG, "initLog: CSV file path:" + filePath);
         StringBuilder headerInfo = new StringBuilder();
-        headerInfo.append("version：").append(FURenderer.getVersion()).append(CSVUtils.COMMA)
+        headerInfo.append("version：").append(FURenderer.getInstance().getVersion()).append(CSVUtils.COMMA)
                 .append("机型：").append(android.os.Build.MANUFACTURER).append(android.os.Build.MODEL)
                 .append("处理方式：Texture").append(CSVUtils.COMMA);
         mCSVUtils.initHeader(filePath, headerInfo);

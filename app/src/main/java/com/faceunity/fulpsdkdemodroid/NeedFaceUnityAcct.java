@@ -13,6 +13,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import com.faceunity.nama.FURenderer;
 import com.tencent.liteav.demo.livepusher.camerapush.PreferenceUtil;
 
 import java.util.ArrayList;
@@ -56,6 +57,9 @@ public class NeedFaceUnityAcct extends AppCompatActivity {
                         isOn + "");
                 startActivity(intent);
                 finish();
+                if (isOn) {
+                    new Thread(() -> FURenderer.getInstance().setup(getApplicationContext())).start();
+                }
             }
         });
     }
