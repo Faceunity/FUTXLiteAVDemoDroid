@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
 import android.opengl.GLSurfaceView;
-import android.opengl.Matrix;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -12,6 +11,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.faceunity.core.entity.FURenderOutputData;
@@ -94,6 +94,11 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
         mTvFps = findViewById(R.id.tv_fps);
+        ImageButton btnBack = findViewById(R.id.livepusher_ibtn_back);
+        btnBack.setOnClickListener(v -> {
+            finish();
+        });
+
         FaceUnityView faceUnityView = findViewById(R.id.faceunity_control);
         String isOpen = PreferenceUtil.getString(this, PreferenceUtil.KEY_FACEUNITY_IS_ON);
         if (TextUtils.isEmpty(isOpen) || isOpen.equals("false")) {
@@ -139,6 +144,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mLivePusher.stopPusher();
         mPushHandler.removeMessages(0);
         mPushThread.quitSafely();
     }
@@ -150,11 +156,11 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
             }
             mReadWriteLock.readLock().lock();
             try {
-                NV21toI420(mReadBack, mYUV420P, cameraHeight, cameraWidth);
+                NV21toI420(mReadBack, mYUV420P, cameraWidth, cameraHeight);
             } finally {
                 mReadWriteLock.readLock().unlock();
             }
-            mLivePusher.sendCustomVideoData(mYUV420P, TXLivePusher.YUV_420P, cameraHeight, cameraWidth);
+            mLivePusher.sendCustomVideoData(mYUV420P, TXLivePusher.YUV_420P, cameraWidth, cameraHeight);
         }
     }
 
@@ -192,6 +198,8 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
             long start = System.nanoTime();
 
             mReadWriteLock.writeLock().lock();
+            int tempW = 0;
+            int tempH = 0;
             try {
                 FURenderOutputData outputData = mFuRenderer.onDrawFrameDualInput(nv21Byte, texId, cameraWidth, cameraHeight, true);
                 if (outputData.getTexture() != null && outputData.getTexture().getTexId() > 0) {
@@ -199,12 +207,15 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
                 }
                 if (outputData.getImage() != null && outputData.getImage().getBuffer() != null) {
                     mReadBack = outputData.getImage().getBuffer();
+                    tempW = outputData.getImage().getWidth();
+                    tempH = outputData.getImage().getHeight();
                 }
             } finally {
                 mReadWriteLock.writeLock().unlock();
             }
-
-            mPushHandler.post(() -> pushData(cameraWidth, cameraHeight));
+            final int w = tempW;
+            final int h = tempH;
+            mPushHandler.post(() -> pushData(w, h));
 
             long renderTime = System.nanoTime() - start;
             mCSVUtils.writeCsv(null, renderTime);
@@ -246,12 +257,12 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
                 mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
                 mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
                 mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_FRONT));
-                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT180);
+                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT90_FLIPHORIZONTAL);
             }else {
                 mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0);
                 mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0);
                 mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(cameraFacing));
-                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT0_FLIPVERTICAL);
+                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT90_FLIPHORIZONTAL);
             }
         }
     }

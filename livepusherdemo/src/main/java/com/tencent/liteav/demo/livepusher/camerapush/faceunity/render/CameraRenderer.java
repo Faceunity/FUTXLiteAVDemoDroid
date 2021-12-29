@@ -8,6 +8,7 @@ import android.hardware.Camera;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
@@ -140,8 +141,7 @@ public class CameraRenderer implements GLSurfaceView.Renderer, Camera.PreviewCal
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
         GLES20.glViewport(0, 0, width, height);
-        mMvpMatrix = GlUtil.changeMvpMatrixCrop(Arrays.copyOf(GlUtil.IDENTITY_MATRIX,
-                GlUtil.IDENTITY_MATRIX.length), width, height, mCameraHeight, mCameraWidth);
+        createMVPMatrix(width, height);
         Log.d(TAG, "onSurfaceChanged. viewWidth:" + width + ", viewHeight:" + height
                 + ". cameraOrientation:" + mCameraOrientation + ", cameraWidth:" + mCameraWidth
                 + ", cameraHeight:" + mCameraHeight + ", textureId:" + mCameraTextureId);
@@ -231,8 +231,7 @@ public class CameraRenderer implements GLSurfaceView.Renderer, Camera.PreviewCal
             parameters.setPreviewFormat(ImageFormat.NV21);
             mCamera.setParameters(parameters);
             if (mViewWidth > 0 && mViewHeight > 0) {
-                mMvpMatrix = GlUtil.changeMvpMatrixCrop(Arrays.copyOf(GlUtil.IDENTITY_MATRIX,
-                        GlUtil.IDENTITY_MATRIX.length), mViewWidth, mViewHeight, mCameraHeight, mCameraWidth);
+                createMVPMatrix(mViewWidth, mViewHeight);
             }
             Log.d(TAG, "openCamera. facing: " + (cameraId == Camera.CameraInfo.CAMERA_FACING_BACK
                     ? "back" : "front") + ", orientation:" + mCameraOrientation + ", cameraWidth:" + mCameraWidth
@@ -296,6 +295,15 @@ public class CameraRenderer implements GLSurfaceView.Renderer, Camera.PreviewCal
             mOnRendererStatusListener.onCameraChanged(mCameraFacing, mCameraOrientation);
         } catch (Exception e) {
             Log.e(TAG, "startPreview: ", e);
+        }
+    }
+
+    private void createMVPMatrix(int width, int height) {
+        mMvpMatrix = GlUtil.changeMvpMatrixCrop(Arrays.copyOf(GlUtil.IDENTITY_MATRIX,
+                GlUtil.IDENTITY_MATRIX.length), width, height, mCameraHeight, mCameraWidth);
+        Matrix.rotateM(mMvpMatrix, 0, 90, 0f, 0f, 1f);
+        if (mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            Matrix.scaleM(mMvpMatrix, 0, 1f, -1f, 1f);
         }
     }
 
