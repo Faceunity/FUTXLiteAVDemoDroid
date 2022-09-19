@@ -35,6 +35,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.faceunity.core.enumeration.CameraFacingEnum;
+import com.faceunity.core.enumeration.FUAIProcessorEnum;
 import com.faceunity.core.enumeration.FUInputTextureEnum;
 import com.faceunity.core.enumeration.FUTransformMatrixEnum;
 import com.faceunity.nama.FURenderer;
@@ -137,21 +138,7 @@ public class CameraPushMainActivity extends FragmentActivity implements
             mFURenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT0);
             mFURenderer.setCameraFacing(CameraFacingEnum.CAMERA_FRONT);
             mFURenderer.setInputTextureType(FUInputTextureEnum.FU_ADM_FLAG_COMMON_TEXTURE);
-            mFURenderer.setOnDebugListener(new FURenderer.OnDebugListener() {
-                @Override
-                public void onFpsChanged(double fps, double callTime) {
-                    final String FPS = String.format(Locale.getDefault(), "%.2f", fps);
-                    Log.e(TAG, "onFpsChanged: FPS " + FPS + " callTime " + String.format(Locale.getDefault(), "%.2f", callTime));
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (mTvFps != null) {
-                                mTvFps.setText("FPS: " + FPS);
-                            }
-                        }
-                    });
-                }
-            });
+            mFURenderer.setMarkFPSEnable(true);
             mFaceUnityDataFactory = new FaceUnityDataFactory(0);
             faceUnityView.bindDataFactory(mFaceUnityDataFactory);
             mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -198,6 +185,25 @@ public class CameraPushMainActivity extends FragmentActivity implements
         @Override
         public void onPrepare() {
             mFaceUnityDataFactory.bindCurrentRenderer();
+        }
+
+        @Override
+        public void onTrackStatusChanged(FUAIProcessorEnum type, int status) {
+
+        }
+
+        @Override
+        public void onFpsChanged(double fps, double callTime) {
+            final String FPS = String.format(Locale.getDefault(), "%.2f", fps);
+            Log.e(TAG, "onFpsChanged: FPS " + FPS + " callTime " + String.format(Locale.getDefault(), "%.2f", callTime));
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (mTvFps != null) {
+                        mTvFps.setText("FPS: " + FPS);
+                    }
+                }
+            });
         }
 
         @Override

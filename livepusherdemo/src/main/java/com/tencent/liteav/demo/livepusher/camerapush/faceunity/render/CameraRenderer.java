@@ -175,7 +175,7 @@ public class CameraRenderer implements GLSurfaceView.Renderer, Camera.PreviewCal
                     mCameraWidth, mCameraHeight, mMvpMatrix, mTexMatrix, mSurfaceTexture.getTimestamp());
         }
         if (!mIsStoppedPreview) {
-            if (mFuTextureId > 0) {
+            if (mFuTextureId >= 0) {
                 mProgramTexture2d.drawFrame(mFuTextureId, mTexMatrix, mMvpMatrix);
             } else if (mCameraTextureId > 0) {
                 mProgramTextureOes.drawFrame(mCameraTextureId, mTexMatrix, mMvpMatrix);

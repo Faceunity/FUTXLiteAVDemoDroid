@@ -11,7 +11,6 @@ import com.faceunity.core.enumeration.FUInputBufferEnum;
 import com.faceunity.core.enumeration.FUInputTextureEnum;
 import com.faceunity.core.enumeration.FUTransformMatrixEnum;
 import com.faceunity.nama.listener.FURendererListener;
-import com.faceunity.nama.listener.OnTrackStatusChangedListener;
 
 /**
  * DESC：
@@ -68,11 +67,11 @@ abstract class IFURenderer {
 
 
     /**
-     * 设置人脸检测回调监听
+     * 设置FPS检测
      *
-     * @param listener
+     * @param enable
      */
-    public abstract void setOnTrackStatusChangedListener(OnTrackStatusChangedListener listener);
+    public abstract void setMarkFPSEnable(boolean enable);
 
     /**
      * 设置检测类型

@@ -23,7 +23,6 @@ import com.faceunity.core.utils.CameraUtils;
 import com.faceunity.nama.FURenderer;
 import com.faceunity.nama.data.FaceUnityDataFactory;
 import com.faceunity.nama.listener.FURendererListener;
-import com.faceunity.nama.listener.OnTrackStatusChangedListener;
 import com.faceunity.nama.ui.FaceUnityView;
 import com.tencent.liteav.demo.livepusher.R;
 import com.tencent.liteav.demo.livepusher.camerapush.PreferenceUtil;
@@ -45,8 +44,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.tencent.rtmp.TXLiveConstants.CUSTOM_MODE_VIDEO_CAPTURE;
 
-public class MainSendBufferActivity extends AppCompatActivity implements CameraRenderer.OnRendererStatusListener, FURenderer.OnDebugListener,
-        OnTrackStatusChangedListener, LifeCycleSensorManager.OnAccelerometerChangedListener{
+public class MainSendBufferActivity extends AppCompatActivity implements CameraRenderer.OnRendererStatusListener , LifeCycleSensorManager.OnAccelerometerChangedListener{
     private static final String TAG = "MainActivity";
     private TextView mTvFps;
     private TextView mTvTrackStatus;
@@ -107,14 +105,12 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
             mFuRenderer = FURenderer.getInstance();
             mFuRenderer.setInputTextureType(FUInputTextureEnum.FU_ADM_FLAG_EXTERNAL_OES_TEXTURE);
             mFuRenderer.setCameraFacing(CameraFacingEnum.CAMERA_FRONT);
-
+            mFuRenderer.setMarkFPSEnable(true);
             mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
             mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
             mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_FRONT));
             mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT180);
 
-            mFuRenderer.setOnDebugListener(this);
-            mFuRenderer.setOnTrackStatusChangedListener(this);
             mFaceUnityDataFactory = new FaceUnityDataFactory(0);
             faceUnityView.bindDataFactory(mFaceUnityDataFactory);
             LifeCycleSensorManager lifeCycleSensorManager = new LifeCycleSensorManager(this, getLifecycle());
@@ -168,6 +164,36 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
         @Override
         public void onPrepare() {
             mFaceUnityDataFactory.bindCurrentRenderer();
+        }
+
+        @Override
+        public void onTrackStatusChanged(FUAIProcessorEnum type, int status) {
+            Log.i(TAG, "onTrackStatusChanged() called with: type = [" + type + "], status = [" + status + "]");
+            if (mTvTrackStatus == null) {
+                return;
+            }
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mTvTrackStatus.setText(type == FUAIProcessorEnum.FACE_PROCESSOR ? R.string.toast_not_detect_face : R.string.toast_not_detect_face_or_body);
+                    mTvTrackStatus.setVisibility(status > 0 ? View.INVISIBLE : View.VISIBLE);
+                }
+            });
+        }
+
+        @Override
+        public void onFpsChanged(double fps, double callTime) {
+            final String FPS = String.format(Locale.getDefault(), "%.2f", fps);
+            Log.e(TAG, "onFpsChanged: FPS " + FPS + " callTime " + String.format(Locale.getDefault(), "%.2f", callTime));
+            if (mTvFps == null) {
+                return;
+            }
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mTvFps.setText(String.format("FPS: %d", (int) fps));
+                }
+            });
         }
 
         @Override
@@ -273,36 +299,6 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
         }else if (v.getId() == R.id.iv_change_camera) {
             mCameraRenderer.switchCamera();
         }
-    }
-
-    @Override
-    public void onTrackStatusChanged(final FUAIProcessorEnum type, final int status) {
-        Log.i(TAG, "onTrackStatusChanged() called with: type = [" + type + "], status = [" + status + "]");
-        if (mTvTrackStatus == null) {
-            return;
-        }
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mTvTrackStatus.setText(type == FUAIProcessorEnum.FACE_PROCESSOR ? R.string.toast_not_detect_face : R.string.toast_not_detect_face_or_body);
-                mTvTrackStatus.setVisibility(status > 0 ? View.INVISIBLE : View.VISIBLE);
-            }
-        });
-    }
-
-    @Override
-    public void onFpsChanged(final double fps, final double callTime) {
-        final String FPS = String.format(Locale.getDefault(), "%.2f", fps);
-        Log.e(TAG, "onFpsChanged: FPS " + FPS + " callTime " + String.format(Locale.getDefault(), "%.2f", callTime));
-        if (mTvFps == null) {
-            return;
-        }
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mTvFps.setText(String.format("FPS: %d", (int) fps));
-            }
-        });
     }
 
     private void initData() {

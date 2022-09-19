@@ -10,14 +10,12 @@ import com.faceunity.core.entity.FURenderOutputData;
 import com.faceunity.core.enumeration.CameraFacingEnum;
 import com.faceunity.core.enumeration.FUAIProcessorEnum;
 import com.faceunity.core.enumeration.FUAITypeEnum;
-import com.faceunity.core.enumeration.FUTransformMatrixEnum;
 import com.faceunity.core.faceunity.FURenderConfig;
 import com.faceunity.core.faceunity.FURenderKit;
 import com.faceunity.core.faceunity.FURenderManager;
 import com.faceunity.core.utils.CameraUtils;
 import com.faceunity.core.utils.FULogger;
 import com.faceunity.nama.listener.FURendererListener;
-import com.faceunity.nama.listener.OnTrackStatusChangedListener;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -73,9 +71,6 @@ public class FURenderer extends IFURenderer {
     /* 清除队列标识 */
     private volatile boolean mClearQueue = false;
 
-
-    /* 检测回调监听 */
-    private OnTrackStatusChangedListener mOnTrackStatusChangedListener;
     /*检测类型*/
     private FUAIProcessorEnum aIProcess = FUAIProcessorEnum.FACE_PROCESSOR;
     /*检测标识*/
@@ -159,7 +154,9 @@ public class FURenderer extends IFURenderer {
         config.setInputTextureMatrix(inputTextureMatrix);
         config.setOutputMatrix(outputMatrix);
         config.setCameraFacing(cameraFacing);
+        mCallStartTime = System.nanoTime();
         FURenderOutputData outputData = mFURenderKit.renderWithInput(inputData);
+        mSumCallTime += System.nanoTime() - mCallStartTime;
         if (outputData.getTexture() != null && outputData.getTexture().getTexId() > 0) {
             return outputData.getTexture().getTexId();
         }
@@ -189,8 +186,10 @@ public class FURenderer extends IFURenderer {
         config.setCameraFacing(cameraFacing);
         config.setOutputMatrix(outputMatrix);
         config.setNeedBufferReturn(readback);
-        Log.e("benyq", "onDrawFrameDualInput: " + config);
-        return mFURenderKit.renderWithInput(inputData);
+        mCallStartTime = System.nanoTime();
+        FURenderOutputData outputData = mFURenderKit.renderWithInput(inputData);
+        mSumCallTime += System.nanoTime() - mCallStartTime;
+        return outputData;
     }
 
     /**
@@ -221,7 +220,6 @@ public class FURenderer extends IFURenderer {
     public void release() {
         mRendererSwitch = false;
         mClearQueue = true;
-        mOnTrackStatusChangedListener = null;
         mGlThreadId = 0L;
         synchronized (queueLock) {
             mEventQueue.clear();
@@ -241,7 +239,7 @@ public class FURenderer extends IFURenderer {
      *
      * @return
      */
-    private void prepareDrawFrame() {
+    public void prepareDrawFrame() {
         benchmarkFPS();
 
         // 执行任务队列中的任务
@@ -255,16 +253,6 @@ public class FURenderer extends IFURenderer {
     }
 
     //region AI识别
-
-    /**
-     * 设置人脸检测回调监听
-     *
-     * @param listener
-     */
-    @Override
-    public void setOnTrackStatusChangedListener(OnTrackStatusChangedListener listener) {
-        mOnTrackStatusChangedListener = listener;
-    }
 
     @Override
     public void setCameraFacing(CameraFacingEnum cameraFacing) {
@@ -281,9 +269,20 @@ public class FURenderer extends IFURenderer {
      *
      * @param type
      */
+    @Override
     public void setAIProcessTrackType(FUAIProcessorEnum type) {
         aIProcess = type;
         aIProcessTrackStatus = -1;
+    }
+
+    /**
+     * 设置FPS检测
+     *
+     * @param enable
+     */
+    @Override
+    public void setMarkFPSEnable(boolean enable) {
+        mIsRunBenchmark = enable;
     }
 
 
@@ -302,8 +301,8 @@ public class FURenderer extends IFURenderer {
         if (trackCount != aIProcessTrackStatus) {
             aIProcessTrackStatus = trackCount;
         }
-        if (mOnTrackStatusChangedListener != null) {
-            mOnTrackStatusChangedListener.onTrackStatusChanged(aIProcess, trackCount);
+        if (mFURendererListener != null) {
+            mFURendererListener.onTrackStatusChanged(aIProcess, trackCount);
         }
     }
     //endregion AI识别
@@ -318,17 +317,6 @@ public class FURenderer extends IFURenderer {
     private long mLastFrameTimestamp;
     private long mSumCallTime;
     private long mCallStartTime;
-    private OnDebugListener mOnDebugListener;
-
-    public interface OnDebugListener {
-        /**
-         * 统计每 10 帧的平均数据，FPS 和渲染函数调用时间
-         *
-         * @param fps      FPS
-         * @param callTime 渲染函数调用时间
-         */
-        void onFpsChanged(double fps, double callTime);
-    }
 
     private void benchmarkFPS() {
         if (!mIsRunBenchmark) {
@@ -342,15 +330,10 @@ public class FURenderer extends IFURenderer {
             mSumCallTime = 0;
             mCurrentFrameCount = 0;
 
-            if (mOnDebugListener != null) {
-                mOnDebugListener.onFpsChanged(fps, renderTime);
+            if (mFURendererListener != null) {
+                mFURendererListener.onFpsChanged(fps, renderTime);
             }
         }
-    }
-
-    public void setOnDebugListener(OnDebugListener onDebugListener) {
-        mOnDebugListener = onDebugListener;
-        mIsRunBenchmark = true;
     }
 
 }
