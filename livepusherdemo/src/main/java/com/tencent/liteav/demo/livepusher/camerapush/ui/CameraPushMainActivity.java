@@ -38,10 +38,15 @@ import com.faceunity.core.enumeration.CameraFacingEnum;
 import com.faceunity.core.enumeration.FUAIProcessorEnum;
 import com.faceunity.core.enumeration.FUInputTextureEnum;
 import com.faceunity.core.enumeration.FUTransformMatrixEnum;
+import com.faceunity.core.faceunity.FUAIKit;
+import com.faceunity.core.faceunity.FURenderKit;
+import com.faceunity.core.model.facebeauty.FaceBeautyBlurTypeEnum;
+import com.faceunity.nama.FUConfig;
 import com.faceunity.nama.FURenderer;
 import com.faceunity.nama.data.FaceUnityDataFactory;
 import com.faceunity.nama.listener.FURendererListener;
 import com.faceunity.nama.ui.FaceUnityView;
+import com.faceunity.nama.utils.FuDeviceUtils;
 import com.tencent.liteav.audiosettingkit.AudioEffectPanel;
 import com.tencent.liteav.demo.livepusher.R;
 import com.tencent.liteav.demo.livepusher.camerapush.PreferenceUtil;
@@ -139,7 +144,7 @@ public class CameraPushMainActivity extends FragmentActivity implements
             mFURenderer.setCameraFacing(CameraFacingEnum.CAMERA_FRONT);
             mFURenderer.setInputTextureType(FUInputTextureEnum.FU_ADM_FLAG_COMMON_TEXTURE);
             mFURenderer.setMarkFPSEnable(true);
-            mFaceUnityDataFactory = new FaceUnityDataFactory(0);
+            mFaceUnityDataFactory = new FaceUnityDataFactory(-1);
             faceUnityView.bindDataFactory(mFaceUnityDataFactory);
             mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
             Sensor sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -583,6 +588,24 @@ public class CameraPushMainActivity extends FragmentActivity implements
             return;
         }
         livePusher.setVideoProcessListener(new TXLivePusher.VideoCustomProcessListener() {
+
+            private void cheekFaceNum() {
+                //根据有无人脸 + 设备性能 判断开启的磨皮类型
+                float faceProcessorGetConfidenceScore = FUAIKit.getInstance().getFaceProcessorGetConfidenceScore(0);
+                if (faceProcessorGetConfidenceScore >= 0.95) {
+                    //高端手机并且检测到人脸开启均匀磨皮，人脸点位质
+                    if (FURenderKit.getInstance().getFaceBeauty() != null && FURenderKit.getInstance().getFaceBeauty().getBlurType() != FaceBeautyBlurTypeEnum.EquallySkin) {
+                        FURenderKit.getInstance().getFaceBeauty().setBlurType(FaceBeautyBlurTypeEnum.EquallySkin);
+                        FURenderKit.getInstance().getFaceBeauty().setEnableBlurUseMask(true);
+                    }
+                } else {
+                    if (FURenderKit.getInstance().getFaceBeauty() != null && FURenderKit.getInstance().getFaceBeauty().getBlurType() != FaceBeautyBlurTypeEnum.FineSkin) {
+                        FURenderKit.getInstance().getFaceBeauty().setBlurType(FaceBeautyBlurTypeEnum.FineSkin);
+                        FURenderKit.getInstance().getFaceBeauty().setEnableBlurUseMask(false);
+                    }
+                }
+            }
+
             private boolean mIsFirstFrame = true;
 
             /**
@@ -605,8 +628,11 @@ public class CameraPushMainActivity extends FragmentActivity implements
                 if (System.currentTimeMillis() - currentTime < 200){
                     mFURenderer.onDrawFrameDualInput(null, i, i1, i2);
                 }
-                int texId = mFURenderer.onDrawFrameDualInput(null, i, i1, i2);
-                return texId;
+                if (FUConfig.DEVICE_LEVEL > FuDeviceUtils.DEVICE_LEVEL_MID) {
+                    //高性能设备
+                    cheekFaceNum();
+                }
+                return mFURenderer.onDrawFrameDualInput(null, i, i1, i2);
             }
 
             /**

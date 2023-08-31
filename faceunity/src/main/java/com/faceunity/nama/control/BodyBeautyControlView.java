@@ -42,7 +42,7 @@ public class BodyBeautyControlView extends BaseControlView {
     private HashMap<String, ModelAttributeData> mModelAttributeRange;
     private ArrayList<BodyBeautyBean> mBodyBeautyBeans;
     private BaseListAdapter<BodyBeautyBean> mBodyAdapter;
-    private int mBodyIndex = 0;
+    private int mBodyIndex = -1;
 
 
     public BodyBeautyControlView(@NonNull Context context) {
@@ -73,14 +73,24 @@ public class BodyBeautyControlView extends BaseControlView {
         mBodyBeautyBeans = mDataFactory.getBodyBeautyParam();
         mBodyAdapter.setData(mBodyBeautyBeans);
         mModelAttributeRange = mDataFactory.getModelAttributeRange();
-        BodyBeautyBean data = mBodyBeautyBeans.get(mBodyIndex);
-        double value = mDataFactory.getParamIntensity(data.getKey());
-        double stand = mModelAttributeRange.get(data.getKey()).getStandV();
-        double maxRange = mModelAttributeRange.get(data.getKey()).getMaxRange();
-        seekToSeekBar(value, stand, maxRange);
+        if (mBodyIndex > 0) {
+            BodyBeautyBean data = mBodyBeautyBeans.get(mBodyIndex);
+            double value = mDataFactory.getParamIntensity(data.getKey());
+            double stand = mModelAttributeRange.get(data.getKey()).getStandV();
+            double maxRange = mModelAttributeRange.get(data.getKey()).getMaxRange();
+            seekToSeekBar(value, stand, maxRange);
+        } else {
+            discreteSeekBar.setVisibility(INVISIBLE);
+        }
         setRecoverEnable(checkParamsChanged());
     }
 
+    public void updateOnSelected() {
+        if (switchCompat != null) {
+            boolean enabled = mDataFactory == null || mDataFactory.isBodyBeautyEnabled();
+            switchCompat.setChecked(enabled);
+        }
+    }
 
     private void initView() {
         recyclerView = findViewById(R.id.recycler_view);
@@ -206,17 +216,19 @@ public class BodyBeautyControlView extends BaseControlView {
      * @return Boolean
      */
     private boolean checkParamsChanged() {
-        BodyBeautyBean bean = mBodyBeautyBeans.get(mBodyIndex);
-        double value = mDataFactory.getParamIntensity(bean.getKey());
-        double defaultV = mModelAttributeRange.get(bean.getKey()).getDefaultV();
-        if (!DecimalUtils.doubleEquals(value, defaultV)) {
-            return true;
-        }
-        for (BodyBeautyBean beautyBean : mBodyBeautyBeans) {
-            value = mDataFactory.getParamIntensity(beautyBean.getKey());
-            defaultV = mModelAttributeRange.get(beautyBean.getKey()).getDefaultV();
+        if (mBodyBeautyBeans.size() > mBodyIndex && mBodyIndex >= 0) {
+            BodyBeautyBean bean = mBodyBeautyBeans.get(mBodyIndex);
+            double value = mDataFactory.getParamIntensity(bean.getKey());
+            double defaultV = mModelAttributeRange.get(bean.getKey()).getDefaultV();
             if (!DecimalUtils.doubleEquals(value, defaultV)) {
                 return true;
+            }
+            for (BodyBeautyBean beautyBean : mBodyBeautyBeans) {
+                value = mDataFactory.getParamIntensity(beautyBean.getKey());
+                defaultV = mModelAttributeRange.get(beautyBean.getKey()).getDefaultV();
+                if (!DecimalUtils.doubleEquals(value, defaultV)) {
+                    return true;
+                }
             }
         }
         return false;

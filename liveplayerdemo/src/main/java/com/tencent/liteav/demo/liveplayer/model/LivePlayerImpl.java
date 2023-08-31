@@ -92,7 +92,7 @@ public class LivePlayerImpl implements LivePlayer, ITXLivePlayListener {
              * result返回值：
              * 0 success; -1 empty url; -2 invalid url; -3 invalid playType;
              */
-            code = mLivePlayer.startPlay(playURL, mCurrentPlayURLType);
+            code = mLivePlayer.startLivePlay(playURL, mCurrentPlayURLType);
             mIsPlaying = code == 0;
 
             Log.d("video render", "timetrack start play");

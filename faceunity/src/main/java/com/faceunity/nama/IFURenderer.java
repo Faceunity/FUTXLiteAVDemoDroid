@@ -80,6 +80,8 @@ abstract class IFURenderer {
      */
     public abstract void setAIProcessTrackType(FUAIProcessorEnum type);
 
+    public abstract FUAIProcessorEnum getAIProcessTrackType();
+
     /**
      * 资源释放
      */

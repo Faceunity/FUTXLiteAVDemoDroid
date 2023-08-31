@@ -7,7 +7,7 @@ buildscript {
         jcenter()
         maven { url 'http://maven.aliyun.com/nexus/content/repositories/google' }
         maven { url 'http://maven.aliyun.com/nexus/content/repositories/jcenter' }
-        maven { url 'http://maven.faceunity.com/repository/maven-public/' }
+        maven { url 'https://maven.faceunity.com/repository/maven-public/' }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.6.1'
@@ -24,7 +24,7 @@ allprojects {
         maven { url 'https://jitpack.io' }
         maven { url 'http://maven.aliyun.com/nexus/content/repositories/google' }
         maven { url 'http://maven.aliyun.com/nexus/content/repositories/jcenter' }
-        maven { url 'http://maven.faceunity.com/repository/maven-public/' }
+        maven { url 'https://maven.faceunity.com/repository/maven-public/' }
     }
 }
 
@@ -33,6 +33,6 @@ task clean(type: Delete) {
 }
 
 ext {
-    liteavSdk="com.tencent.liteav:LiteAVSDK_Professional:10.1.0.11098"
+    liteavSdk="com.tencent.liteav:LiteAVSDK_Professional:11.3.0.13176"
     imSdk = 'com.tencent.imsdk:imsdk:4.9.1'
 }

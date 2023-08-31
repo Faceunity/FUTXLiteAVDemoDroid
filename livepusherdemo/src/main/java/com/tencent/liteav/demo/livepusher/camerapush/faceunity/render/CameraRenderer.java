@@ -62,6 +62,7 @@ public class CameraRenderer implements GLSurfaceView.Renderer, Camera.PreviewCal
     private ProgramTexture2d mProgramTexture2d;
     private ProgramTextureOES mProgramTextureOes;
     private Handler mBackgroundHandler;
+    private int mSkipFrame = 5;
 
     public CameraRenderer(Activity activity, GLSurfaceView glSurfaceView, OnRendererStatusListener onRendererStatusListener) {
         mActivity = activity;
@@ -176,7 +177,8 @@ public class CameraRenderer implements GLSurfaceView.Renderer, Camera.PreviewCal
         }
         if (!mIsStoppedPreview) {
             if (mFuTextureId >= 0) {
-                mProgramTexture2d.drawFrame(mFuTextureId, mTexMatrix, mMvpMatrix);
+                int texId = mSkipFrame-- > 0 ? 0 : mFuTextureId;
+                mProgramTexture2d.drawFrame(texId, mTexMatrix, mMvpMatrix);
             } else if (mCameraTextureId > 0) {
                 mProgramTextureOes.drawFrame(mCameraTextureId, mTexMatrix, mMvpMatrix);
             }
@@ -292,6 +294,7 @@ public class CameraRenderer implements GLSurfaceView.Renderer, Camera.PreviewCal
             mCamera.startPreview();
             mIsPreviewing = true;
             Log.d(TAG, "startPreview: cameraTexId:" + mCameraTextureId);
+            mSkipFrame = 5;
             mOnRendererStatusListener.onCameraChanged(mCameraFacing, mCameraOrientation);
         } catch (Exception e) {
             Log.e(TAG, "startPreview: ", e);

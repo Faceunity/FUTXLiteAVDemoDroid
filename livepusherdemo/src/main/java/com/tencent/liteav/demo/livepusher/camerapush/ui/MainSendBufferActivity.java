@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -14,20 +15,29 @@ import android.view.View;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import com.faceunity.core.entity.FUCameraConfig;
+import com.faceunity.core.entity.FURenderFrameData;
+import com.faceunity.core.entity.FURenderInputData;
 import com.faceunity.core.entity.FURenderOutputData;
 import com.faceunity.core.enumeration.CameraFacingEnum;
 import com.faceunity.core.enumeration.FUAIProcessorEnum;
 import com.faceunity.core.enumeration.FUInputTextureEnum;
 import com.faceunity.core.enumeration.FUTransformMatrixEnum;
+import com.faceunity.core.faceunity.FUAIKit;
+import com.faceunity.core.faceunity.FURenderKit;
+import com.faceunity.core.listener.OnGlRendererListener;
+import com.faceunity.core.model.facebeauty.FaceBeautyBlurTypeEnum;
+import com.faceunity.core.renderer.CameraRenderer;
 import com.faceunity.core.utils.CameraUtils;
+import com.faceunity.nama.FUConfig;
 import com.faceunity.nama.FURenderer;
 import com.faceunity.nama.data.FaceUnityDataFactory;
 import com.faceunity.nama.listener.FURendererListener;
 import com.faceunity.nama.ui.FaceUnityView;
+import com.faceunity.nama.utils.FuDeviceUtils;
 import com.tencent.liteav.demo.livepusher.R;
 import com.tencent.liteav.demo.livepusher.camerapush.PreferenceUtil;
 import com.tencent.liteav.demo.livepusher.camerapush.faceunity.gles.core.GlUtil;
-import com.tencent.liteav.demo.livepusher.camerapush.faceunity.render.CameraRenderer;
 import com.tencent.liteav.demo.livepusher.camerapush.model.Constants;
 import com.tencent.liteav.demo.livepusher.camerapush.profile.CSVUtils;
 import com.tencent.liteav.demo.livepusher.camerapush.profile.Constant;
@@ -41,10 +51,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 import static com.tencent.rtmp.TXLiveConstants.CUSTOM_MODE_VIDEO_CAPTURE;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-public class MainSendBufferActivity extends AppCompatActivity implements CameraRenderer.OnRendererStatusListener , LifeCycleSensorManager.OnAccelerometerChangedListener{
+public class MainSendBufferActivity extends AppCompatActivity implements OnGlRendererListener, LifeCycleSensorManager.OnAccelerometerChangedListener{
     private static final String TAG = "MainActivity";
     private TextView mTvFps;
     private TextView mTvTrackStatus;
@@ -69,6 +80,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
     private HandlerThread mPushThread;
     private Handler mPushHandler;
     private ReentrantReadWriteLock mReadWriteLock = new ReentrantReadWriteLock();
+    private FUAIKit mFUAIKit = FUAIKit.getInstance();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,8 +98,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
 
         GLSurfaceView glSurfaceView = findViewById(R.id.video_view);
         glSurfaceView.setEGLContextClientVersion(GlUtil.getSupportGLVersion(this));
-        mCameraRenderer = new CameraRenderer(this, glSurfaceView, this);
-        glSurfaceView.setRenderer(mCameraRenderer);
+        mCameraRenderer = new CameraRenderer(glSurfaceView, new FUCameraConfig(), this);
         glSurfaceView.setKeepScreenOn(true);
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
@@ -111,7 +122,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
             mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_FRONT));
             mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT180);
 
-            mFaceUnityDataFactory = new FaceUnityDataFactory(0);
+            mFaceUnityDataFactory = new FaceUnityDataFactory(-1);
             faceUnityView.bindDataFactory(mFaceUnityDataFactory);
             LifeCycleSensorManager lifeCycleSensorManager = new LifeCycleSensorManager(this, getLifecycle());
             lifeCycleSensorManager.setOnAccelerometerChangedListener(this);
@@ -214,7 +225,7 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
     public void onSurfaceChanged(int viewWidth, int viewHeight) {
     }
 
-    @Override
+//    @Override
     public int onDrawFrame(byte[] nv21Byte, int texId, int cameraWidth, int cameraHeight, float[] mvpMatrix, float[] texMatrix, long timeStamp) {
         int tid = 0;
         if (nv21Byte == null) {
@@ -227,6 +238,10 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
             int tempW = 0;
             int tempH = 0;
             try {
+                if (FUConfig.DEVICE_LEVEL > FuDeviceUtils.DEVICE_LEVEL_MID) {
+                    //高性能设备
+                    cheekFaceNum();
+                }
                 FURenderOutputData outputData = mFuRenderer.onDrawFrameDualInput(nv21Byte, texId, cameraWidth, cameraHeight, true);
                 if (outputData.getTexture() != null && outputData.getTexture().getTexId() > 0) {
                     tid = outputData.getTexture().getTexId();
@@ -275,23 +290,41 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
         }
     }
 
-    @Override
-    public void onCameraChanged(int cameraFacing, int cameraOrientation) {
-        if (mFuRenderer != null) {
-            mFuRenderer.setCameraFacing(cameraFacing == 1 ? CameraFacingEnum.CAMERA_FRONT : CameraFacingEnum.CAMERA_BACK);
-            if (cameraFacing == 1) {
-                mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
-                mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
-                mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_FRONT));
-                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT90_FLIPHORIZONTAL);
-            }else {
-                mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0);
-                mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0);
-                mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(cameraFacing));
-                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT90_FLIPHORIZONTAL);
+//    @Override
+//    public void onCameraChanged(int cameraFacing, int cameraOrientation) {
+//        if (mFuRenderer != null) {
+//            mFuRenderer.setCameraFacing(cameraFacing == 1 ? CameraFacingEnum.CAMERA_FRONT : CameraFacingEnum.CAMERA_BACK);
+//            if (cameraFacing == 1) {
+//                mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
+//                mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0_FLIPHORIZONTAL);
+//                mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_FRONT));
+//                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT90_FLIPHORIZONTAL);
+//            }else {
+//                mFuRenderer.setInputBufferMatrix(FUTransformMatrixEnum.CCROT0);
+//                mFuRenderer.setInputTextureMatrix(FUTransformMatrixEnum.CCROT0);
+//                mFuRenderer.setInputOrientation(CameraUtils.INSTANCE.getCameraOrientation(cameraFacing));
+//                mFuRenderer.setOutputMatrix(FUTransformMatrixEnum.CCROT90_FLIPHORIZONTAL);
+//            }
+//        }
+//    }
+
+    private void cheekFaceNum() {
+        //根据有无人脸 + 设备性能 判断开启的磨皮类型
+        float faceProcessorGetConfidenceScore = FUAIKit.getInstance().getFaceProcessorGetConfidenceScore(0);
+        if (faceProcessorGetConfidenceScore >= 0.95) {
+            //高端手机并且检测到人脸开启均匀磨皮，人脸点位质
+            if (FURenderKit.getInstance().getFaceBeauty() != null && FURenderKit.getInstance().getFaceBeauty().getBlurType() != FaceBeautyBlurTypeEnum.EquallySkin) {
+                FURenderKit.getInstance().getFaceBeauty().setBlurType(FaceBeautyBlurTypeEnum.EquallySkin);
+                FURenderKit.getInstance().getFaceBeauty().setEnableBlurUseMask(true);
+            }
+        } else {
+            if (FURenderKit.getInstance().getFaceBeauty() != null && FURenderKit.getInstance().getFaceBeauty().getBlurType() != FaceBeautyBlurTypeEnum.FineSkin) {
+                FURenderKit.getInstance().getFaceBeauty().setBlurType(FaceBeautyBlurTypeEnum.FineSkin);
+                FURenderKit.getInstance().getFaceBeauty().setEnableBlurUseMask(false);
             }
         }
     }
+
 
     public void onClick(View v) {
          if (v.getId() == R.id.livepusher_ibtn_qrcode) {
@@ -348,5 +381,125 @@ public class MainSendBufferActivity extends AppCompatActivity implements CameraR
                 .append("机型：").append(android.os.Build.MANUFACTURER).append(android.os.Build.MODEL)
                 .append("处理方式：Texture").append(CSVUtils.COMMA);
         mCSVUtils.initHeader(filePath, headerInfo);
+    }
+
+    @Override
+    public void onDrawFrameAfter() {
+        if (mFuRenderer != null) {
+            benchmarkFPS();
+            trackStatus();
+        }
+    }
+
+    private long csvStartTime = 0;
+    @Override
+    public void onRenderBefore(@Nullable FURenderInputData fuRenderInputData) {
+        mFuCallStartTime = System.nanoTime();
+        fuRenderInputData.getRenderConfig().setNeedBufferReturn(true);
+        fuRenderInputData.getRenderConfig().setOutputMatrix(FUTransformMatrixEnum.CCROT0_FLIPVERTICAL);
+        if (FUConfig.DEVICE_LEVEL > FuDeviceUtils.DEVICE_LEVEL_MID) {
+            //高性能设备
+            cheekFaceNum();
+        }
+        csvStartTime = System.nanoTime();
+    }
+
+    @Override
+    public void onRenderAfter(@NotNull FURenderOutputData fuRenderOutputData, @NotNull FURenderFrameData fuRenderFrameData) {
+        long renderTime = System.nanoTime() - csvStartTime;
+        mCSVUtils.writeCsv(null, renderTime);
+
+        float[] mvp = fuRenderFrameData.getMvpMatrix();
+        Matrix.scaleM(mvp, 0, 1, -1, 1);
+        fuRenderFrameData.setMvpMatrix(mvp);
+        mReadWriteLock.writeLock().lock();
+        int width = 0;
+        int height = 0;
+        try {
+            if (fuRenderOutputData.getImage() != null) {
+                mReadBack = fuRenderOutputData.getImage().getBuffer();
+                width = fuRenderOutputData.getImage().getWidth();
+                height = fuRenderOutputData.getImage().getHeight();
+            }
+        }finally {
+            mReadWriteLock.writeLock().unlock();
+        }
+        final int w = width;
+        final int h = height;
+        mPushHandler.post(() -> pushData(w, h));
+    }
+
+
+    private int mCurrentFrameCnt = 0;
+    private int mMaxFrameCnt = 10;
+    private long mLastOneHundredFrameTimeStamp = 0;
+    private long mFuCallStartTime = 0; //渲染前时间锚点（用于计算渲染市场）
+    private long mOneHundredFrameFUTime = 0;
+    protected int aIProcessTrackStatus = 1;
+
+    private void onTrackStatusChanged(FUAIProcessorEnum type, int status) {
+        Log.i(TAG, "onTrackStatusChanged() called with: type = [" + type + "], status = [" + status + "]");
+        if (mTvTrackStatus == null) {
+            return;
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTvTrackStatus.setText(type == FUAIProcessorEnum.FACE_PROCESSOR ? R.string.toast_not_detect_face : R.string.toast_not_detect_body);
+                mTvTrackStatus.setVisibility(status > 0 ? View.INVISIBLE : View.VISIBLE);
+            }
+        });
+    }
+
+    private void onFpsChanged(double fps, double callTime) {
+        final String FPS = String.format(Locale.getDefault(), "%.2f", fps);
+        Log.e(TAG, "onFpsChanged: FPS " + FPS + " callTime " + String.format(Locale.getDefault(), "%.2f", callTime));
+        if (mTvFps == null) {
+            return;
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTvFps.setText(String.format("FPS: %d", (int) fps));
+            }
+        });
+    }
+
+    /*AI识别数目检测*/
+    private void trackStatus() {
+        FUAIProcessorEnum fuaiProcessorEnum = mFuRenderer.getAIProcessTrackType();
+        int trackCount;
+        if (fuaiProcessorEnum == FUAIProcessorEnum.HAND_GESTURE_PROCESSOR) {
+            trackCount = mFUAIKit.handProcessorGetNumResults();
+        } else if (fuaiProcessorEnum == FUAIProcessorEnum.HUMAN_PROCESSOR) {
+            trackCount = mFUAIKit.humanProcessorGetNumResults();
+        } else {
+            trackCount = mFUAIKit.isTracking();
+        }
+        if (aIProcessTrackStatus != trackCount) {
+            aIProcessTrackStatus = trackCount;
+            runOnUiThread(() -> onTrackStatusChanged(fuaiProcessorEnum, trackCount));
+        }
+    }
+
+    private boolean mEnableFaceRender = false; //是否使用sdk渲染，该变量只在一个线程使用不需要volatile
+
+    /*渲染FPS日志*/
+    private void benchmarkFPS() {
+
+        if (mEnableFaceRender)
+            mOneHundredFrameFUTime += System.nanoTime() - mFuCallStartTime;
+        else
+            mOneHundredFrameFUTime = 0;
+
+        if (++mCurrentFrameCnt == mMaxFrameCnt) {
+            mCurrentFrameCnt = 0;
+            double fps = ((double) mMaxFrameCnt) * 1000000000L / (System.nanoTime() - mLastOneHundredFrameTimeStamp);
+            double renderTime = ((double) mOneHundredFrameFUTime) / mMaxFrameCnt / 1000000L;
+            mLastOneHundredFrameTimeStamp = System.nanoTime();
+            mOneHundredFrameFUTime = 0;
+            runOnUiThread(() -> onFpsChanged(fps, renderTime));
+        }
+        mEnableFaceRender = false;
     }
 }
