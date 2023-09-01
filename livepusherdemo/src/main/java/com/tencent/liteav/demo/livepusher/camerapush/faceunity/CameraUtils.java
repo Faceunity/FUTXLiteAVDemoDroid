@@ -31,7 +31,7 @@ import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 
-import com.faceunity.nama.utils.ThreadHelper;
+import com.faceunity.core.utils.ThreadHelper;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;

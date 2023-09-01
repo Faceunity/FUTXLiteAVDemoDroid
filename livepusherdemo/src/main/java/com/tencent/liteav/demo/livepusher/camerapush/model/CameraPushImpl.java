@@ -493,6 +493,7 @@ public class CameraPushImpl implements CameraPush, ITXLivePushListener {
         mLivePusher = new TXLivePusher(context);
         mPusherView = pusherView;
         mLivePushConfig = new TXLivePushConfig();
+        mLivePushConfig.setCustomModeType(TXLiveConstants.CUSTOM_MODE_VIDEO_PREPROCESS);
         mLivePushConfig.setVideoEncodeGop(5);
         mLivePusher.setConfig(mLivePushConfig);
         mWaterMarkBitmap = decodeResource(mContext.getResources(), R.drawable.livepusher_watermark);
@@ -503,6 +504,7 @@ public class CameraPushImpl implements CameraPush, ITXLivePushListener {
         mContext = context;
         mLivePusher = new TXLivePusher(context);
         mLivePushConfig = new TXLivePushConfig();
+        mLivePushConfig.setCustomModeType(TXLiveConstants.CUSTOM_MODE_VIDEO_PREPROCESS);
         mLivePushConfig.setVideoEncodeGop(5);
         mLivePusher.setConfig(mLivePushConfig);
         mWaterMarkBitmap = decodeResource(mContext.getResources(), R.drawable.livepusher_watermark);

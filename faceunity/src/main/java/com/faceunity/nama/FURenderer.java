@@ -10,12 +10,14 @@ import com.faceunity.core.entity.FURenderOutputData;
 import com.faceunity.core.enumeration.CameraFacingEnum;
 import com.faceunity.core.enumeration.FUAIProcessorEnum;
 import com.faceunity.core.enumeration.FUAITypeEnum;
+import com.faceunity.core.faceunity.FUAIKit;
 import com.faceunity.core.faceunity.FURenderConfig;
 import com.faceunity.core.faceunity.FURenderKit;
 import com.faceunity.core.faceunity.FURenderManager;
 import com.faceunity.core.utils.CameraUtils;
 import com.faceunity.core.utils.FULogger;
 import com.faceunity.nama.listener.FURendererListener;
+import com.faceunity.nama.utils.FuDeviceUtils;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -52,7 +54,9 @@ public class FURenderer extends IFURenderer {
 
 
     /* 特效FURenderKit*/
-    private FURenderKit mFURenderKit;
+    private FURenderKit mFURenderKit = FURenderKit.getInstance();
+    /* 特效FURenderKit*/
+    private FUAIKit mFUAIKit = FUAIKit.getInstance();
 
     /* AI道具*/
     private String BUNDLE_AI_FACE = "model" + File.separator + "ai_face_processor.bundle";
@@ -93,8 +97,8 @@ public class FURenderer extends IFURenderer {
             @Override
             public void onSuccess(int i, @NotNull String s) {
                 if (i == FURenderConfig.OPERATE_SUCCESS_AUTH) {
-                    mFURenderKit.getFUAIController().loadAIProcessor(BUNDLE_AI_FACE, FUAITypeEnum.FUAITYPE_FACEPROCESSOR);
-                    mFURenderKit.getFUAIController().loadAIProcessor(BUNDLE_AI_HUMAN, FUAITypeEnum.FUAITYPE_HUMAN_PROCESSOR);
+                    mFUAIKit.loadAIProcessor(BUNDLE_AI_FACE, FUAITypeEnum.FUAITYPE_FACEPROCESSOR);
+                    mFUAIKit.loadAIProcessor(BUNDLE_AI_HUMAN, FUAITypeEnum.FUAITYPE_HUMAN_PROCESSOR);
                     int cameraFrontOrientation = CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_FRONT);
                     int cameraBackOrientation = CameraUtils.INSTANCE.getCameraOrientation(Camera.CameraInfo.CAMERA_FACING_BACK);
                     cameraOrientationMap.put(CameraFacingEnum.CAMERA_FRONT, cameraFrontOrientation);
@@ -273,6 +277,11 @@ public class FURenderer extends IFURenderer {
     public void setAIProcessTrackType(FUAIProcessorEnum type) {
         aIProcess = type;
         aIProcessTrackStatus = -1;
+    }
+
+    @Override
+    public FUAIProcessorEnum getAIProcessTrackType() {
+        return aIProcess;
     }
 
     /**
